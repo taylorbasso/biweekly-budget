@@ -1,24 +1,25 @@
 <!--
 Sync Impact Report
-Version change: (template, unratified) → 1.0.0
-Modified principles: n/a (initial ratification)
-Added sections:
-  - Core Principles: I. Simplicity First (YAGNI), II. CLI-First, Library-Oriented Design,
-    III. Type Safety & Static Checking, IV. Local-First Data Privacy,
-    V. Correctness of Financial Calculations (NON-NEGOTIABLE)
-  - Core Domain Rules
-  - Development Workflow
-  - Governance
-Removed sections: none (first fill of template placeholders)
+Version change: 1.0.0 → 2.0.0
+Modified principles:
+  - I. Simplicity First (YAGNI) — redefined interface baseline from "CLI tool" to
+    "local Flask web app"; backward-incompatible with prior CLI-only mandate
+  - II. CLI-First, Library-Oriented Design → II. Library-Oriented Design — dropped the
+    CLI-specific framing; the separation-of-concerns rule is generalized to any
+    interface layer
+  - IV. Local-First Data Privacy — added an explicit localhost-only binding rule now
+    that the interface is a web server with real network exposure surface
+Added sections: none
+Removed sections: none
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check gate is
-    generic and reads principles at plan time)
-  - .specify/templates/spec-template.md ✅ no changes needed (generic, no
-    principle-specific hardcoding)
-  - .specify/templates/tasks-template.md ✅ no changes needed (generic, no
-    principle-specific hardcoding)
-  - .claude/skills/speckit-*/SKILL.md ✅ no agent-specific references found requiring
-    updates
+  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check gate
+    reads principles at plan time; still generic)
+  - .specify/templates/spec-template.md ✅ no changes needed
+  - .specify/templates/tasks-template.md ✅ no changes needed
+  - specs/001-pay-cycle-leftover/plan.md ⚠ pending — in progress in the same session,
+    being rewritten for Flask instead of CLI
+  - specs/001-pay-cycle-leftover/contracts/ ⚠ pending — CLI contract not yet written to
+    disk (edit was interrupted); will be replaced with a web-route contract
 Follow-up TODOs: none
 -->
 
@@ -29,27 +30,28 @@ between one paycheck and the next. -->
 ## Core Principles
 
 ### I. Simplicity First (YAGNI)
-The system MUST start as a CLI tool backed by a local SQLite database. No additional
-interface (web UI, GUI, sync service, API) MAY be introduced until the CLI core is
-functional and a concrete, stated need for it exists. Every feature MUST serve the core
-goal — computing discretionary spending money between pay dates — before speculative
-extensions (multi-currency, recurring-transaction templates, multi-user accounts, budget
-forecasting, etc.) are considered. When in doubt, ship the smaller thing.
+The system MUST be built as a single local web application (Flask) backed by a local
+SQLite database. No additional interface (native desktop GUI, mobile app, public-facing
+deployment, multi-user accounts) MAY be introduced until a concrete, stated need exists.
+Every feature MUST serve the core goal — computing discretionary spending money between
+pay dates — before speculative extensions (multi-currency, recurring-transaction
+templates, multi-user accounts, budget forecasting, etc.) are considered. When in doubt,
+ship the smaller thing.
 
 Rationale: this is an early-stage personal project; the fastest path to a useful tool is
 a small, focused core. Premature interface or feature work is wasted effort until the
 core calculation is proven correct and useful day-to-day.
 
-### II. CLI-First, Library-Oriented Design
+### II. Library-Oriented Design
 Core budget logic (pay-cycle computation, expense-to-cycle matching, leftover-amount
-calculation) MUST live in a Python module independent of any interface layer. The CLI
-MUST be a thin wrapper over that module: arguments/stdin in, human-readable text to
-stdout, errors to stderr. Business logic MUST NOT be embedded directly in CLI command
-handlers.
+calculation, category breakdown) MUST live in a Python module independent of the web
+layer. Flask routes/views MUST be thin wrappers over that module: parse input, call the
+core module, render output. Business logic MUST NOT be embedded directly in route
+handlers or templates.
 
-Rationale: keeping the calculation engine separate from the CLI means a future interface
-(TUI, web UI, etc.) can be added later without rewriting the logic that has already been
-validated — directly supporting Principle I's "CLI now, UI later" trajectory.
+Rationale: keeping the calculation engine separate from the web layer means it stays
+independently testable and could be reused behind a different interface later without
+rewriting logic that has already been validated.
 
 ### III. Type Safety & Static Checking
 All Python code MUST use type hints on public functions, method signatures, and data
@@ -65,10 +67,14 @@ before they can produce a wrong answer.
 Income, expenses, and category data MUST be stored locally in SQLite. No financial data
 MAY be transmitted to any third-party service or network endpoint without explicit,
 separate user opt-in for that specific feature. There is no default cloud sync, telemetry,
-or external reporting.
+or external reporting. The web application MUST bind only to localhost (127.0.0.1) by
+default; it MUST NOT be exposed on a network-accessible interface or deployed to a
+public-facing host without explicit, separate user opt-in.
 
 Rationale: this is personal financial data. The default posture is that it never leaves
-the user's machine unless they specifically choose to send it somewhere.
+the user's machine unless they specifically choose to send it somewhere — and a local web
+server is reachable over the network by default unless deliberately restricted, so that
+restriction has to be a stated rule, not an assumption.
 
 ### V. Correctness of Financial Calculations (NON-NEGOTIABLE)
 Any code that determines pay-cycle boundaries, matches an expense's due date to a cycle,
@@ -102,7 +108,10 @@ because the user will make spending decisions based on it.
   a change touching that logic is considered done (Principle V).
 - Database schema changes MUST be expressed as migrations tracked in the repository, not
   as ad-hoc manual edits to a developer's local database file.
-- New interfaces, dependencies, or stored-data categories that go beyond the CLI +
+- Templates MUST rely on Flask/Jinja2's default auto-escaping for any user-supplied text
+  (expense names, categories) rendered in HTML; auto-escaping MUST NOT be disabled to
+  work around a formatting problem.
+- New interfaces, dependencies, or stored-data categories that go beyond the Flask +
   SQLite + local-only baseline MUST be justified against Principles I and IV before being
   added.
 
@@ -119,8 +128,8 @@ Report at its top, and bumping the version per the policy below.
 - PATCH: wording, clarification, or typo fixes with no semantic change.
 
 **Compliance review**: any change to core budget-calculation logic, storage, or the
-CLI/library boundary should be checked against the Core Principles above before being
+web/library boundary should be checked against the Core Principles above before being
 merged. Complexity that violates Principle I (Simplicity First) must be justified in the
 relevant plan's Complexity Tracking section rather than added silently.
 
-**Version**: 1.0.0 | **Ratified**: 2026-07-28 | **Last Amended**: 2026-07-28
+**Version**: 2.0.0 | **Ratified**: 2026-07-28 | **Last Amended**: 2026-07-28
