@@ -21,13 +21,21 @@ Amounts are stored as integer cents to avoid floating-point rounding error in mo
 | id | integer PK | Auto-increment |
 | name | text | Required, non-empty |
 | amount | integer (cents) | Required, `> 0` (FR-012) |
-| recurrence_type | text enum | One of `day_of_month`, `day_of_week` (FR-004) |
-| recurrence_value | integer | `day_of_month`: 1–31. `day_of_week`: 0–6 (Monday=0 .. Sunday=6, matching `datetime.date.weekday()`) |
+| recurrence_type | text enum | One of `day_of_month`, `day_of_week`, `biweekly` (FR-004, FR-004a) |
+| recurrence_value | integer | `day_of_month`: 1–31. `day_of_week`: 0–6 (Monday=0 .. Sunday=6, matching `datetime.date.weekday()`). Unused (stored as `0`) for `biweekly`. |
 | category | text, nullable | Optional (FR-004); `NULL`/empty displays as "Uncategorized" (FR-016) |
+| recurrence_anchor | date, nullable | Required when `recurrence_type = biweekly`; any historical due date on the biweekly schedule. `NULL` for the other two recurrence types (FR-004a). |
 
 Validation:
 - `recurrence_type = day_of_month` → `recurrence_value` must be in `1..31`.
 - `recurrence_type = day_of_week` → `recurrence_value` must be in `0..6`.
+- `recurrence_type = biweekly` → `recurrence_anchor` must be present (not `NULL`).
+
+`biweekly` recurrence uses the same fixed-interval projection as `PaySchedule` (FR-002):
+occurrences fall on `recurrence_anchor + 14*n days` for any integer `n`, independent of
+the pay schedule's own anchor date — the two 14-day sequences are not required to align.
+This covers expenses like a mortgage payment that recurs every two weeks but isn't tied
+to a calendar day-of-month or day-of-week.
 
 ## Computed (not persisted) concepts
 
@@ -64,7 +72,9 @@ A concrete due-date instance of a `RecurringExpense` within a specific `Cycle`
 A given `RecurringExpense` contributes zero or more `ExpenseOccurrence`s to a single
 cycle (a `day_of_week` rule on a 14-day cycle always yields exactly 2; a `day_of_month`
 rule yields 0 or 1, since a 14-day window cannot span two occurrences of the same
-calendar day-of-month). Every occurrence belongs to exactly one cycle (FR-013).
+calendar day-of-month; a `biweekly` rule always yields exactly 1, since its 14-day
+period matches the cycle length exactly). Every occurrence belongs to exactly one cycle
+(FR-013).
 
 ### LeftoverResult
 

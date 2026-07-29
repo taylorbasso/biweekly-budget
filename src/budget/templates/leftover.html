@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Leftover — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Leftover this cycle</h1>
+
+{% if pay_schedule is none %}
+  <p>No pay schedule recorded yet. <a href="/pay-schedule">Set up your pay schedule</a> to get started.</p>
+{% else %}
+  <p>
+    Cycle: {{ result.cycle.start_date.isoformat() }} through {{ result.cycle.end_date.isoformat() }}
+    (next pay date {{ result.cycle.next_pay_date.isoformat() }})
+  </p>
+  <p>Pay amount: ${{ "%.2f"|format(result.pay_amount / 100) }}</p>
+  <p>Total expenses: ${{ "%.2f"|format(result.total_expenses / 100) }}</p>
+  <p><strong>Leftover: ${{ "%.2f"|format(result.leftover_amount / 100) }}</strong></p>
+
+  <h2>Expenses due this cycle</h2>
+  {% if result.occurrences %}
+    <ul>
+      {% for occurrence in result.occurrences %}
+        <li>
+          {{ occurrence.due_date.isoformat() }} — {{ occurrence.name }}
+          (${{ "%.2f"|format(occurrence.amount / 100) }}, {{ occurrence.category }})
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No expenses due this cycle.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

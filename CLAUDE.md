@@ -53,13 +53,19 @@ tests/
 └── integration/       # Flask test client + db round trips
 ```
 
-## Commands (once implemented)
+## Commands
 
 ```bash
 pytest tests/          # test suite
 mypy src/               # static type check — must pass clean
 flask --app src.budget.app run   # local dev server, binds 127.0.0.1 only
 ```
+
+Templates auto-reload on every request (`TEMPLATES_AUTO_RELOAD = True` is set in
+`create_app()`), so template/Jinja edits show up on the next browser refresh with no
+restart needed. Python module changes (routes.py, calculations.py, etc.) still require
+restarting the `flask run` process — or run with `flask --app src.budget.app --debug run`
+to get the Werkzeug auto-reloader for those too.
 
 ## Working here
 

@@ -31,10 +31,10 @@ Single project, per `plan.md`:
 
 **Purpose**: Project initialization
 
-- [ ] T001 Create project structure: `src/budget/__init__.py`, `src/budget/templates/`, `tests/unit/`, `tests/integration/` per `plan.md`
-- [ ] T002 Create `pyproject.toml` declaring Flask as a runtime dependency and pytest + mypy as dev dependencies; make the package installable (`pip install -e .`)
-- [ ] T003 [P] Configure mypy in `pyproject.toml` (`[tool.mypy]`) targeting `src/budget`
-- [ ] T004 [P] Configure pytest in `pyproject.toml` (`[tool.pytest.ini_options]`) pointing at `tests/`
+- [X] T001 Create project structure: `src/budget/__init__.py`, `src/budget/templates/`, `tests/unit/`, `tests/integration/` per `plan.md`
+- [X] T002 Create `pyproject.toml` declaring Flask as a runtime dependency and pytest + mypy as dev dependencies; make the package installable (`pip install -e .`)
+- [X] T003 [P] Configure mypy in `pyproject.toml` (`[tool.mypy]`) targeting `src/budget`
+- [X] T004 [P] Configure pytest in `pyproject.toml` (`[tool.pytest.ini_options]`) pointing at `tests/`
 
 ---
 
@@ -44,12 +44,12 @@ Single project, per `plan.md`:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T005 Implement SQLite schema creation for `pay_schedule` and `recurring_expense` tables (per `data-model.md`) in `src/budget/db.py`
-- [ ] T006 [P] Implement `PaySchedule` and `RecurringExpense` dataclasses with type hints and validation (`amount > 0`; `recurrence_value` in range for its `recurrence_type`) in `src/budget/models.py`
-- [ ] T007 Implement `db.py` CRUD functions — `get_pay_schedule`, `set_pay_schedule`, `list_expenses`, `get_expense`, `create_expense`, `update_expense`, `delete_expense` — in `src/budget/db.py` (depends on T005, T006)
-- [ ] T008 Implement Flask app factory `create_app()` in `src/budget/app.py`; dev server MUST bind to `127.0.0.1` only (Constitution Principle IV)
-- [ ] T009 [P] Create base Jinja2 layout template in `src/budget/templates/layout.html`
-- [ ] T010 [P] Create shared pytest fixtures (temp SQLite db path, Flask test client) in `tests/conftest.py`
+- [X] T005 Implement SQLite schema creation for `pay_schedule` and `recurring_expense` tables (per `data-model.md`) in `src/budget/db.py`
+- [X] T006 [P] Implement `PaySchedule` and `RecurringExpense` dataclasses with type hints and validation (`amount > 0`; `recurrence_value` in range for its `recurrence_type`) in `src/budget/models.py`
+- [X] T007 Implement `db.py` CRUD functions — `get_pay_schedule`, `set_pay_schedule`, `list_expenses`, `get_expense`, `create_expense`, `update_expense`, `delete_expense` — in `src/budget/db.py` (depends on T005, T006)
+- [X] T008 Implement Flask app factory `create_app()` in `src/budget/app.py`; dev server MUST bind to `127.0.0.1` only (Constitution Principle IV)
+- [X] T009 [P] Create base Jinja2 layout template in `src/budget/templates/layout.html`
+- [X] T010 [P] Create shared pytest fixtures (temp SQLite db path, Flask test client) in `tests/conftest.py`
 
 **Checkpoint**: Foundation ready — user story implementation can now begin
 
@@ -65,17 +65,17 @@ Single project, per `plan.md`:
 
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-- [ ] T011 [P] [US1] Unit tests for pay-date projection and cycle boundary resolution — forward/backward projection, reference date exactly on the anchor, reference date before the anchor — in `tests/unit/test_cycles.py`
-- [ ] T012 [P] [US1] Unit tests for day-of-month clamping (31st in a 30-day month, 29th/30th/31st in February) and day-of-week occurrence counting (exactly 2 occurrences in any 14-day cycle) in `tests/unit/test_calculations.py`
-- [ ] T013 [P] [US1] Unit tests for leftover-calculation boundary cases: an occurrence exactly on the cycle start date, exactly on the cycle end date, and exactly on the next pay date (must be excluded) in `tests/unit/test_calculations.py`
+- [X] T011 [P] [US1] Unit tests for pay-date projection and cycle boundary resolution — forward/backward projection, reference date exactly on the anchor, reference date before the anchor — in `tests/unit/test_cycles.py`
+- [X] T012 [P] [US1] Unit tests for day-of-month clamping (31st in a 30-day month, 29th/30th/31st in February) and day-of-week occurrence counting (exactly 2 occurrences in any 14-day cycle) in `tests/unit/test_calculations.py`
+- [X] T013 [P] [US1] Unit tests for leftover-calculation boundary cases: an occurrence exactly on the cycle start date, exactly on the cycle end date, and exactly on the next pay date (must be excluded) in `tests/unit/test_calculations.py`
 
 ### Implementation for User Story 1
 
-- [ ] T014 [US1] Implement pay-date projection and cycle boundary resolution (`resolve_cycle(pay_schedule, reference_date) -> Cycle`) in `src/budget/cycles.py`
-- [ ] T015 [US1] Implement expense-occurrence generation for a cycle, including day-of-month clamping and day-of-week matching (`occurrences_in_cycle(expenses, cycle) -> list[ExpenseOccurrence]`) in `src/budget/calculations.py` (depends on T014)
-- [ ] T016 [US1] Implement leftover calculation (`compute_leftover(pay_schedule, occurrences, cycle) -> LeftoverResult`) in `src/budget/calculations.py` (depends on T015)
-- [ ] T017 [US1] Implement `GET /` route in `src/budget/routes.py`, rendering the cycle range, pay amount, total expenses, and leftover amount — or a "set up your pay schedule" prompt if none exists (depends on T016, T008)
-- [ ] T018 [US1] Create the leftover view template in `src/budget/templates/leftover.html`
+- [X] T014 [US1] Implement pay-date projection and cycle boundary resolution (`resolve_cycle(pay_schedule, reference_date) -> Cycle`) in `src/budget/cycles.py`
+- [X] T015 [US1] Implement expense-occurrence generation for a cycle, including day-of-month clamping and day-of-week matching (`occurrences_in_cycle(expenses, cycle) -> list[ExpenseOccurrence]`) in `src/budget/calculations.py` (depends on T014)
+- [X] T016 [US1] Implement leftover calculation (`compute_leftover(pay_schedule, occurrences, cycle) -> LeftoverResult`) in `src/budget/calculations.py` (depends on T015)
+- [X] T017 [US1] Implement `GET /` route in `src/budget/routes.py`, rendering the cycle range, pay amount, total expenses, and leftover amount — or a "set up your pay schedule" prompt if none exists (depends on T016, T008)
+- [X] T018 [US1] Create the leftover view template in `src/budget/templates/leftover.html`
 
 **Checkpoint**: User Story 1 is fully functional and testable independently — this is the MVP.
 
@@ -89,8 +89,8 @@ Single project, per `plan.md`:
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement `GET /pay-schedule` and `POST /pay-schedule` routes in `src/budget/routes.py`, with validation (`amount > 0`, valid date) that re-renders the form with an inline error on failure rather than persisting bad input
-- [ ] T020 [US2] Create the pay-schedule form/display template in `src/budget/templates/pay_schedule.html`
+- [X] T019 [US2] Implement `GET /pay-schedule` and `POST /pay-schedule` routes in `src/budget/routes.py`, with validation (`amount > 0`, valid date) that re-renders the form with an inline error on failure rather than persisting bad input
+- [X] T020 [US2] Create the pay-schedule form/display template in `src/budget/templates/pay_schedule.html`
 
 **Checkpoint**: User Stories 1 and 2 both work independently.
 
@@ -106,13 +106,13 @@ Single project, per `plan.md`:
 
 ### Tests for User Story 4 (constitution-mandated — Principle V / spec SC-002, SC-005)
 
-- [ ] T021 [P] [US4] Unit tests for category grouping — expenses with no category fall into "Uncategorized"; per-category totals sum exactly to the total from `compute_leftover` for the same cycle — in `tests/unit/test_calculations.py`
+- [X] T021 [P] [US4] Unit tests for category grouping — expenses with no category fall into "Uncategorized"; per-category totals sum exactly to the total from `compute_leftover` for the same cycle — in `tests/unit/test_calculations.py`
 
 ### Implementation for User Story 4
 
-- [ ] T022 [US4] Implement category breakdown (`compute_breakdown(occurrences) -> CategoryBreakdown`) in `src/budget/calculations.py` (depends on T015)
-- [ ] T023 [US4] Implement `GET /breakdown` route in `src/budget/routes.py` (depends on T022, T008)
-- [ ] T024 [US4] Create the breakdown view template in `src/budget/templates/breakdown.html`
+- [X] T022 [US4] Implement category breakdown (`compute_breakdown(occurrences) -> CategoryBreakdown`) in `src/budget/calculations.py` (depends on T015)
+- [X] T023 [US4] Implement `GET /breakdown` route in `src/budget/routes.py` (depends on T022, T008)
+- [X] T024 [US4] Create the breakdown view template in `src/budget/templates/breakdown.html`
 
 **Checkpoint**: User Stories 1, 2, and 4 all work independently.
 
@@ -126,11 +126,11 @@ Single project, per `plan.md`:
 
 ### Implementation for User Story 3
 
-- [ ] T025 [US3] Implement `GET /expenses` (list) route in `src/budget/routes.py` and its template in `src/budget/templates/expenses_list.html`
-- [ ] T026 [US3] Implement `GET /expenses/new` and `POST /expenses` routes in `src/budget/routes.py`, with validation (`amount > 0`; `recurrence_type`/`recurrence_value` valid for that type) that re-renders the form with an inline error on failure
-- [ ] T027 [P] [US3] Create the add/edit expense form template in `src/budget/templates/expense_form.html`
-- [ ] T028 [US3] Implement `GET /expenses/<id>/edit` and `POST /expenses/<id>/edit` routes in `src/budget/routes.py` (404 on unknown id; reuses `expense_form.html`)
-- [ ] T029 [US3] Implement `POST /expenses/<id>/delete` route in `src/budget/routes.py` (404 on unknown id)
+- [X] T025 [US3] Implement `GET /expenses` (list) route in `src/budget/routes.py` and its template in `src/budget/templates/expenses_list.html`
+- [X] T026 [US3] Implement `GET /expenses/new` and `POST /expenses` routes in `src/budget/routes.py`, with validation (`amount > 0`; `recurrence_type`/`recurrence_value` valid for that type) that re-renders the form with an inline error on failure
+- [X] T027 [P] [US3] Create the add/edit expense form template in `src/budget/templates/expense_form.html`
+- [X] T028 [US3] Implement `GET /expenses/<id>/edit` and `POST /expenses/<id>/edit` routes in `src/budget/routes.py` (404 on unknown id; reuses `expense_form.html`)
+- [X] T029 [US3] Implement `POST /expenses/<id>/delete` route in `src/budget/routes.py` (404 on unknown id)
 
 **Checkpoint**: All four user stories are independently functional.
 
@@ -138,9 +138,9 @@ Single project, per `plan.md`:
 
 ## Phase 7: Polish & Cross-Cutting Concerns
 
-- [ ] T030 [P] Run mypy across `src/budget` and resolve any type errors (Constitution Principle III gate)
-- [ ] T031 [P] Add `README.md` with setup and `flask run` instructions
-- [ ] T032 Walk through `quickstart.md` Scenarios 1–5 manually against the running app and confirm every figure matches
+- [X] T030 [P] Run mypy across `src/budget` and resolve any type errors (Constitution Principle III gate)
+- [X] T031 [P] Add `README.md` with setup and `flask run` instructions
+- [X] T032 Walk through `quickstart.md` Scenarios 1–5 manually against the running app and confirm every figure matches
 
 ---
 

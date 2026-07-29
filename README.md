@@ -15,7 +15,8 @@ spec-driven workflow. As of now:
 - ✅ Constitution ratified (`.specify/memory/constitution.md`, v2.0.0)
 - ✅ Feature spec, plan, and tasks generated for the core feature
   (`specs/001-pay-cycle-leftover/`)
-- ⏳ Implementation not yet started
+- ✅ Implemented: pay schedule, recurring expenses (CRUD), leftover calculation, and
+  category breakdown all working end-to-end; `pytest` and `mypy` both pass clean
 
 See `specs/001-pay-cycle-leftover/tasks.md` for the current task breakdown.
 

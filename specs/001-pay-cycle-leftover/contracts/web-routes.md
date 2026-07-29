@@ -58,11 +58,14 @@ Renders the add-expense form.
 Create a recurring expense.
 
 - **Form fields**: `name`, `amount` (decimal dollars), `recurrence_type`
-  (`day_of_month` | `day_of_week`), `recurrence_value`, `category` (optional)
+  (`day_of_month` | `day_of_week` | `biweekly`), `recurrence_value` (unused for
+  `biweekly`), `recurrence_anchor` (`YYYY-MM-DD`, required only for `biweekly`),
+  `category` (optional)
 - **Success**: redirects to `GET /expenses`.
 - **Errors**: `amount <= 0`, missing/invalid `recurrence_type`, `recurrence_value` out of
-  range for the chosen type → re-renders the form with an inline validation message; not
-  persisted (FR-012).
+  range for the chosen type, or missing `recurrence_anchor` when `recurrence_type` is
+  `biweekly` → re-renders the form with an inline validation message; not persisted
+  (FR-012, FR-004a).
 
 ## `GET /expenses/<id>/edit`
 

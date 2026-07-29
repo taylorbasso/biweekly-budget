@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block title %}Pay Schedule — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Pay Schedule</h1>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+{% if pay_schedule %}
+  <p>Current anchor date: {{ pay_schedule.anchor_date.isoformat() }}</p>
+  <p>Current amount: ${{ "%.2f"|format(pay_schedule.amount / 100) }}</p>
+{% endif %}
+
+<form method="post" action="/pay-schedule">
+  <label>
+    Anchor date
+    <input type="date" name="anchor_date"
+           value="{{ pay_schedule.anchor_date.isoformat() if pay_schedule else '' }}" required>
+  </label>
+  <label>
+    Amount (dollars)
+    <input type="number" step="0.01" name="amount"
+           value="{{ '%.2f'|format(pay_schedule.amount / 100) if pay_schedule else '' }}" required>
+  </label>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

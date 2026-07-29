@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% block title %}{{ "Edit" if expense else "Add" }} Expense — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>{{ "Edit" if expense else "Add" }} Expense</h1>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  <label>
+    Name
+    <input type="text" name="name" value="{{ expense.name if expense else '' }}" required>
+  </label>
+  <label>
+    Amount (dollars)
+    <input type="number" step="0.01" name="amount"
+           value="{{ '%.2f'|format(expense.amount / 100) if expense else '' }}" required>
+  </label>
+  <label>
+    Recurrence type
+    <select name="recurrence_type" id="recurrence-type">
+      <option value="day_of_month" {% if expense and expense.recurrence_type == "day_of_month" %}selected{% endif %}>
+        Day of month
+      </option>
+      <option value="day_of_week" {% if expense and expense.recurrence_type == "day_of_week" %}selected{% endif %}>
+        Day of week
+      </option>
+      <option value="biweekly" {% if expense and expense.recurrence_type == "biweekly" %}selected{% endif %}>
+        Every 14 days (biweekly)
+      </option>
+    </select>
+  </label>
+  <div data-recurrence-for="day_of_month">
+    <label>
+      Day of month
+      <input type="number" name="recurrence_value" min="1" max="31"
+             value="{{ expense.recurrence_value if expense and expense.recurrence_type == 'day_of_month' else '' }}">
+    </label>
+  </div>
+  <div data-recurrence-for="day_of_week">
+    <label>
+      Day of week
+      <select name="recurrence_value">
+        {% for value, day_name in [(0, "Monday"), (1, "Tuesday"), (2, "Wednesday"), (3, "Thursday"), (4, "Friday"), (5, "Saturday"), (6, "Sunday")] %}
+        <option value="{{ value }}" {% if expense and expense.recurrence_type == "day_of_week" and expense.recurrence_value == value %}selected{% endif %}>
+          {{ day_name }}
+        </option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+  <div data-recurrence-for="biweekly">
+    <label>
+      Anchor date (any past due date on the biweekly schedule)
+      <input type="date" name="recurrence_anchor"
+             value="{{ expense.recurrence_anchor.isoformat() if expense and expense.recurrence_anchor else '' }}">
+    </label>
+  </div>
+  <label>
+    Category (optional)
+    <input type="text" name="category" value="{{ expense.category if expense else '' }}">
+  </label>
+  <button type="submit">Save</button>
+</form>
+<script src="{{ url_for('static', filename='expense_form.js') }}" defer></script>
+{% endblock %}

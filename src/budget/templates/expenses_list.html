@@ -1,0 +1,46 @@
+{% extends "layout.html" %}
+{% block title %}Expenses — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Recurring Expenses</h1>
+<p><a href="/expenses/new">Add expense</a></p>
+
+{% if expenses %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Amount</th>
+      <th>Recurrence</th>
+      <th>Category</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for expense in expenses %}
+    <tr>
+      <td>{{ expense.name }}</td>
+      <td>${{ "%.2f"|format(expense.amount / 100) }}</td>
+      <td>
+        {% if expense.recurrence_type == "day_of_month" %}
+          Day {{ expense.recurrence_value }} of month
+        {% elif expense.recurrence_type == "day_of_week" %}
+          {{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][expense.recurrence_value] }}
+        {% else %}
+          Every 14 days from {{ expense.recurrence_anchor.isoformat() }}
+        {% endif %}
+      </td>
+      <td>{{ expense.category or "Uncategorized" }}</td>
+      <td>
+        <a href="/expenses/{{ expense.id }}/edit">Edit</a>
+        <form method="post" action="/expenses/{{ expense.id }}/delete" style="display:inline">
+          <button type="submit">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No expenses recorded.</p>
+{% endif %}
+{% endblock %}

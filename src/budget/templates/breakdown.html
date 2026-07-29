@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}Category Breakdown — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Category breakdown this cycle</h1>
+
+{% if pay_schedule is none %}
+  <p>No pay schedule recorded yet. <a href="/pay-schedule">Set up your pay schedule</a> to get started.</p>
+{% else %}
+  <p>
+    Cycle: {{ result.cycle.start_date.isoformat() }} through {{ result.cycle.end_date.isoformat() }}
+    (next pay date {{ result.cycle.next_pay_date.isoformat() }})
+  </p>
+
+  {% if result.totals %}
+    <ul>
+      {% for category, amount in result.totals %}
+        <li>{{ category }}: ${{ "%.2f"|format(amount / 100) }}</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Total: ${{ "%.2f"|format(result.totals | sum(attribute=1) / 100) }}</strong></p>
+  {% else %}
+    <p>No expenses due this cycle.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

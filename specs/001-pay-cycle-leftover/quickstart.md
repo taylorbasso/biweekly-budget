@@ -66,10 +66,13 @@ beyond localhost by default).
 1. With `Streaming` still due on day-of-month `31`, check the cycle containing
    `2026-08-14` (`08-14`–`08-27`, next pay `08-28`).
 2. **Expected**: August has 31 days too, so `Streaming` is due `2026-08-31` — outside
-   this cycle. Check the following cycle (`08-28`–`09-10`) instead: `Streaming` is
-   clamped to `2026-09-30` (September has only 30 days) — outside that cycle as well.
-   Confirms FR-006 clamps to month-end rather than erroring or skipping the month
-   entirely.
+   this cycle (`08-27` is the last day). Check the following cycle (`08-28`–`09-10`,
+   next pay `09-11`) instead: `2026-08-31` falls inside this cycle's range
+   (`08-28` ≤ `08-31` ≤ `09-10`), so `Streaming` is due there. September's own clamped
+   date (`2026-09-30`, since September has only 30 days) falls outside this cycle and
+   is instead due in the *next* cycle after that. Confirms FR-006 clamps to month-end
+   per calendar month rather than erroring or skipping the month entirely, and that
+   every occurrence lands in exactly one cycle (Principle V) — never zero, never two.
 
 ## Automated validation
 

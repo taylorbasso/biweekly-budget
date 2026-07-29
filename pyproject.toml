@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biweekly-budget"
+version = "0.1.0"
+description = "Personal biweekly pay-cycle leftover and category-breakdown calculator"
+requires-python = ">=3.11"
+dependencies = [
+    "flask>=3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.10",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "src"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -88,7 +88,8 @@ As the user, I want each expense tagged with a category (e.g., "Housing", "Subsc
 - **FR-001**: Users MUST be able to record a pay schedule consisting of one anchor pay date and a fixed pay amount.
 - **FR-002**: The system MUST use the pay schedule to project pay dates every 14 days, indefinitely, both forward and backward from the anchor date.
 - **FR-003**: Users MUST be able to update the pay schedule's anchor date or amount.
-- **FR-004**: Users MUST be able to record a recurring expense with a name, a dollar amount, a recurrence rule that is either a day-of-month (1st–31st) or a day-of-week (Sunday–Saturday), and an optional category label.
+- **FR-004**: Users MUST be able to record a recurring expense with a name, a dollar amount, a recurrence rule that is a day-of-month (1st–31st), a day-of-week (Sunday–Saturday), or a fixed 14-day interval anchored to a given date, and an optional category label.
+- **FR-004a**: For a 14-day-interval recurrence rule, the system MUST project due dates every 14 days, indefinitely, both forward and backward from the recorded anchor date — independent of the pay schedule's own anchor date (the two need not align).
 - **FR-005**: Users MUST be able to view, edit, and remove previously recorded recurring expenses, including changing their category.
 - **FR-006**: When a day-of-month recurrence's day does not exist in a given month, the system MUST treat that expense as due on the last day of that month instead.
 - **FR-007**: Users MUST be able to request the leftover amount for the cycle containing any given reference date, defaulting to today's date when none is given.
@@ -105,7 +106,7 @@ As the user, I want each expense tagged with a category (e.g., "Housing", "Subsc
 ### Key Entities
 
 - **Pay Schedule**: The single source used to project pay dates. Holds an anchor date and a fixed amount; pay dates recur every 14 days from the anchor, extending forward and backward indefinitely.
-- **Recurring Expense**: A named, recurring bill or transfer. Holds a dollar amount, a recurrence rule — either a day-of-month or a day-of-week — and an optional category label, used to generate concrete due-date occurrences within any cycle.
+- **Recurring Expense**: A named, recurring bill or transfer. Holds a dollar amount, a recurrence rule — a day-of-month, a day-of-week, or a 14-day interval anchored to a date (e.g. a biweekly mortgage payment) — and an optional category label, used to generate concrete due-date occurrences within any cycle.
 - **Cycle**: A computed date range (start date, end date, next pay date) derived from the Pay Schedule for a given reference date.
 - **Leftover Result**: The output of a leftover request — the cycle's date range, the pay amount, the matched expense occurrences and their total, and the resulting leftover amount.
 - **Category Breakdown**: The output of a breakdown request for a cycle — a set of (category, total amount) pairs covering every expense occurrence due in that cycle.
