@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
-from budget.cycles import resolve_cycle
+from budget.cycles import resolve_cycle, upcoming_cycles
 from budget.models import PaySchedule
 
 
@@ -61,3 +61,35 @@ def test_backward_projection_two_years_behind_stays_aligned() -> None:
     cycle = resolve_cycle(schedule, date(2024, 1, 1))
     assert cycle.start_date <= date(2024, 1, 1) <= cycle.end_date
     assert (cycle.start_date - schedule.anchor_date).days % 14 == 0
+
+
+def test_upcoming_cycles_returns_requested_count_starting_with_input() -> None:
+    schedule = _schedule("2026-07-31")
+    current = resolve_cycle(schedule, date(2026, 8, 1))
+    cycles = upcoming_cycles(current, 10)
+    assert len(cycles) == 10
+    assert cycles[0] == current
+
+
+def test_upcoming_cycles_are_contiguous_and_non_overlapping() -> None:
+    schedule = _schedule("2026-07-31")
+    current = resolve_cycle(schedule, date(2026, 8, 1))
+    cycles = upcoming_cycles(current, 5)
+    for earlier, later in zip(cycles, cycles[1:]):
+        assert later.start_date == earlier.next_pay_date
+        assert later.end_date == later.next_pay_date - timedelta(days=1)
+        assert (later.start_date - earlier.start_date).days == 14
+
+
+def test_upcoming_cycles_count_one_returns_only_current() -> None:
+    schedule = _schedule("2026-07-31")
+    current = resolve_cycle(schedule, date(2026, 8, 1))
+    assert upcoming_cycles(current, 1) == [current]
+
+
+def test_upcoming_cycles_stays_aligned_across_year_boundary() -> None:
+    schedule = _schedule("2026-01-01")
+    current = resolve_cycle(schedule, date(2026, 12, 20))
+    cycles = upcoming_cycles(current, 10)
+    for cycle in cycles:
+        assert (cycle.start_date - schedule.anchor_date).days % 14 == 0

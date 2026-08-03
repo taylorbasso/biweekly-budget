@@ -26,12 +26,14 @@ class LeftoverResult:
     occurrences: list[ExpenseOccurrence]
     total_expenses: int
     leftover_amount: int
+    remaining_expenses: int
 
 
 @dataclass(frozen=True)
 class CategoryBreakdown:
     cycle: Cycle
     totals: list[tuple[str, int]]
+    items: dict[str, list[tuple[str, int]]]
 
 
 def _months_spanning(start: date, end: date) -> list[tuple[int, int]]:
@@ -118,19 +120,29 @@ def occurrences_in_cycle(
             occurrence = _biweekly_occurrence(expense, cycle)
             if occurrence is not None:
                 occurrences.append(occurrence)
+    occurrences.sort(key=lambda occurrence: occurrence.due_date)
     return occurrences
 
 
 def compute_leftover(
-    pay_schedule: PaySchedule, occurrences: list[ExpenseOccurrence], cycle: Cycle
+    pay_schedule: PaySchedule,
+    occurrences: list[ExpenseOccurrence],
+    cycle: Cycle,
+    reference_date: date,
 ) -> LeftoverResult:
     total_expenses = sum(occurrence.amount for occurrence in occurrences)
+    remaining_expenses = sum(
+        occurrence.amount
+        for occurrence in occurrences
+        if occurrence.due_date >= reference_date
+    )
     return LeftoverResult(
         cycle=cycle,
         pay_amount=pay_schedule.amount,
         occurrences=occurrences,
         total_expenses=total_expenses,
         leftover_amount=pay_schedule.amount - total_expenses,
+        remaining_expenses=remaining_expenses,
     )
 
 
@@ -138,6 +150,13 @@ def compute_breakdown(
     cycle: Cycle, occurrences: list[ExpenseOccurrence]
 ) -> CategoryBreakdown:
     totals: dict[str, int] = {}
+    items: dict[str, dict[str, int]] = {}
     for occurrence in occurrences:
         totals[occurrence.category] = totals.get(occurrence.category, 0) + occurrence.amount
-    return CategoryBreakdown(cycle=cycle, totals=list(totals.items()))
+        by_name = items.setdefault(occurrence.category, {})
+        by_name[occurrence.name] = by_name.get(occurrence.name, 0) + occurrence.amount
+    return CategoryBreakdown(
+        cycle=cycle,
+        totals=list(totals.items()),
+        items={category: sorted(names.items()) for category, names in items.items()},
+    )

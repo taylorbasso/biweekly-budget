@@ -8,11 +8,26 @@ from flask.typing import ResponseReturnValue
 
 from budget import db
 from budget.app import get_db
-from budget.calculations import compute_breakdown, compute_leftover, occurrences_in_cycle
-from budget.cycles import resolve_cycle
+from budget.calculations import (
+    UNCATEGORIZED,
+    compute_breakdown,
+    compute_leftover,
+    occurrences_in_cycle,
+)
+from budget.charts import build_chart
+from budget.cycles import resolve_cycle, upcoming_cycles
 from budget.models import PaySchedule, RecurringExpense, ValidationError
 
 bp = Blueprint("budget", __name__)
+
+CYCLE_OPTIONS_COUNT = 10
+
+RECURRENCE_TYPE_ORDER: tuple[str, ...] = ("day_of_month", "day_of_week", "biweekly")
+RECURRENCE_TYPE_LABELS: dict[str, str] = {
+    "day_of_month": "Day of Month",
+    "day_of_week": "Day of Week",
+    "biweekly": "Every 14 Days",
+}
 
 
 def _parse_reference_date() -> date:
@@ -61,10 +76,23 @@ def leftover() -> str:
 
     reference_date = _parse_reference_date()
     cycle = resolve_cycle(pay_schedule, reference_date)
+    current_cycle = resolve_cycle(pay_schedule, date.today())
+    cycle_options = upcoming_cycles(current_cycle, CYCLE_OPTIONS_COUNT)
     expenses = db.list_expenses(conn)
     occurrences = occurrences_in_cycle(expenses, cycle)
-    result = compute_leftover(pay_schedule, occurrences, cycle)
-    return render_template("leftover.html", pay_schedule=pay_schedule, result=result)
+    result = compute_leftover(pay_schedule, occurrences, cycle, reference_date)
+    breakdown = compute_breakdown(cycle, occurrences)
+    chart = build_chart(result.pay_amount, breakdown.totals, result.leftover_amount)
+    return render_template(
+        "leftover.html",
+        pay_schedule=pay_schedule,
+        result=result,
+        chart=chart,
+        category_items=breakdown.items,
+        today=reference_date,
+        cycle_options=cycle_options,
+        selected_start=cycle.start_date,
+    )
 
 
 @bp.route("/pay-schedule", methods=["GET", "POST"])
@@ -89,25 +117,36 @@ def pay_schedule() -> ResponseReturnValue:
     return redirect(url_for("budget.pay_schedule"))
 
 
-@bp.route("/breakdown")
-def breakdown() -> str:
-    conn = get_db()
-    pay_schedule = db.get_pay_schedule(conn)
-    if pay_schedule is None:
-        return render_template("breakdown.html", pay_schedule=None, result=None)
-
-    reference_date = _parse_reference_date()
-    cycle = resolve_cycle(pay_schedule, reference_date)
-    expenses = db.list_expenses(conn)
-    occurrences = occurrences_in_cycle(expenses, cycle)
-    result = compute_breakdown(cycle, occurrences)
-    return render_template("breakdown.html", pay_schedule=pay_schedule, result=result)
+def _group_by_category(
+    expenses: list[RecurringExpense],
+) -> list[tuple[str, list[RecurringExpense]]]:
+    ordered = sorted(
+        expenses, key=lambda expense: (expense.category or UNCATEGORIZED, expense.name)
+    )
+    groups: list[tuple[str, list[RecurringExpense]]] = []
+    for expense in ordered:
+        category = expense.category or UNCATEGORIZED
+        if groups and groups[-1][0] == category:
+            groups[-1][1].append(expense)
+        else:
+            groups.append((category, [expense]))
+    return groups
 
 
 @bp.route("/expenses")
 def expenses_list() -> str:
     conn = get_db()
-    return render_template("expenses_list.html", expenses=db.list_expenses(conn))
+    expenses = db.list_expenses(conn)
+    sections: list[tuple[str, list[tuple[str, list[RecurringExpense]]]]] = []
+    for recurrence_type in RECURRENCE_TYPE_ORDER:
+        groups = _group_by_category(
+            [e for e in expenses if e.recurrence_type == recurrence_type]
+        )
+        if groups:
+            sections.append((RECURRENCE_TYPE_LABELS[recurrence_type], groups))
+    return render_template(
+        "expenses_list.html", sections=sections, has_expenses=bool(expenses)
+    )
 
 
 @bp.route("/expenses/new", methods=["GET"])

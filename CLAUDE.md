@@ -56,16 +56,30 @@ tests/
 ## Commands
 
 ```bash
-pytest tests/          # test suite
-mypy src/               # static type check — must pass clean
-flask --app src.budget.app run   # local dev server, binds 127.0.0.1 only
+./scripts/check.sh      # pytest tests/ + mypy src/ — must both pass clean
+./scripts/dev-server.sh {start|stop|restart|status}   # local dev server, binds 127.0.0.1 only
 ```
 
 Templates auto-reload on every request (`TEMPLATES_AUTO_RELOAD = True` is set in
 `create_app()`), so template/Jinja edits show up on the next browser refresh with no
 restart needed. Python module changes (routes.py, calculations.py, etc.) still require
-restarting the `flask run` process — or run with `flask --app src.budget.app --debug run`
-to get the Werkzeug auto-reloader for those too.
+restarting the dev server — `./scripts/dev-server.sh restart`.
+
+### `scripts/dev-server.sh`
+
+Wraps starting/stopping/restarting the Flask dev server so there's one approvable
+command instead of ad hoc `ps`/`kill`/`flask run` invocations:
+
+```bash
+./scripts/dev-server.sh start     # start if not already running (127.0.0.1:5000)
+./scripts/dev-server.sh stop      # stop if running
+./scripts/dev-server.sh restart   # stop + start — use after any src/budget/*.py change
+./scripts/dev-server.sh status    # report whether it's running and its PID
+```
+
+It finds the server by whatever's listening on port 5000 (override with
+`BUDGET_DEV_PORT`), so it safely takes over a server started outside the script too.
+Logs go to `.dev-server.log` (gitignored) in the repo root.
 
 ## Working here
 
@@ -75,3 +89,10 @@ to get the Werkzeug auto-reloader for those too.
   plan/tasks pipeline is how this project accumulates features.
 - Any change that touches interfaces, dependencies, or the CLI/Flask boundary should be
   checked against the constitution before proceeding.
+- When testing a UI/route change in a browser, use the chrome-devtools MCP tools
+  (navigate, snapshot, click, fill) against the running dev server — not `curl`.
+- Only one dev server should ever be running at a time, on port 5000. Use
+  `./scripts/dev-server.sh {start|stop|restart|status}` for all of it rather than manual
+  `ps`/`kill`/`flask run` — it finds whatever's already on the port (even if started
+  outside the script) and takes it over rather than leaving a second instance running on
+  a different port.

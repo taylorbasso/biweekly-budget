@@ -24,3 +24,17 @@ def resolve_cycle(pay_schedule: PaySchedule, reference_date: date) -> Cycle:
     next_pay_date = start_date + timedelta(days=CYCLE_LENGTH_DAYS)
     end_date = next_pay_date - timedelta(days=1)
     return Cycle(start_date=start_date, end_date=end_date, next_pay_date=next_pay_date)
+
+
+def upcoming_cycles(current_cycle: Cycle, count: int) -> list[Cycle]:
+    """Return `current_cycle` followed by the next `count - 1` consecutive cycles."""
+    cycles = [current_cycle]
+    for _ in range(count - 1):
+        previous = cycles[-1]
+        start_date = previous.next_pay_date
+        next_pay_date = start_date + timedelta(days=CYCLE_LENGTH_DAYS)
+        end_date = next_pay_date - timedelta(days=1)
+        cycles.append(
+            Cycle(start_date=start_date, end_date=end_date, next_pay_date=next_pay_date)
+        )
+    return cycles

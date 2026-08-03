@@ -121,7 +121,7 @@ def test_occurrence_exactly_on_cycle_start_date_is_included() -> None:
     schedule = PaySchedule(anchor_date=date(2026, 7, 31), amount=200_000)
     expense = _expense("Rent", 120_000, "day_of_month", 31)  # due July 31
     occurrences = occurrences_in_cycle([expense], cycle)
-    result = compute_leftover(schedule, occurrences, cycle)
+    result = compute_leftover(schedule, occurrences, cycle, cycle.start_date)
     assert result.total_expenses == 120_000
     assert result.leftover_amount == 80_000
 
@@ -135,7 +135,7 @@ def test_occurrence_exactly_on_cycle_end_date_is_included() -> None:
     schedule = PaySchedule(anchor_date=date(2026, 7, 31), amount=200_000)
     expense = _expense("Card due", 5_000, "day_of_month", 13)  # due Aug 13
     occurrences = occurrences_in_cycle([expense], cycle)
-    result = compute_leftover(schedule, occurrences, cycle)
+    result = compute_leftover(schedule, occurrences, cycle, cycle.start_date)
     assert result.total_expenses == 5_000
     assert len(result.occurrences) == 1
     assert result.occurrences[0].due_date == date(2026, 8, 13)
@@ -150,7 +150,7 @@ def test_occurrence_exactly_on_next_pay_date_is_excluded() -> None:
     schedule = PaySchedule(anchor_date=date(2026, 7, 31), amount=200_000)
     expense = _expense("Due on next pay date", 5_000, "day_of_month", 14)  # Aug 14
     occurrences = occurrences_in_cycle([expense], cycle)
-    result = compute_leftover(schedule, occurrences, cycle)
+    result = compute_leftover(schedule, occurrences, cycle, cycle.start_date)
     assert result.total_expenses == 0
     assert result.occurrences == []
     assert result.leftover_amount == 200_000
@@ -182,8 +182,32 @@ def test_uncategorized_expense_grouped_under_catchall_category() -> None:
     assert totals["Investments"] == 20_000  # two Friday occurrences
     assert totals[UNCATEGORIZED] == 1_500
 
-    leftover = compute_leftover(schedule, occurrences, cycle)
+    leftover = compute_leftover(schedule, occurrences, cycle, cycle.start_date)
     assert sum(amount for _, amount in breakdown.totals) == leftover.total_expenses
+
+
+def test_breakdown_items_group_by_name_within_category_summing_duplicates() -> None:
+    cycle = Cycle(
+        start_date=date(2026, 7, 31),
+        end_date=date(2026, 8, 13),
+        next_pay_date=date(2026, 8, 14),
+    )
+    expenses = [
+        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense(
+            "Investment",
+            10_000,
+            "day_of_week",
+            4,
+            category="Investments",
+            expense_id=2,
+        ),  # occurs twice in this 14-day cycle
+    ]
+    occurrences = occurrences_in_cycle(expenses, cycle)
+    breakdown = compute_breakdown(cycle, occurrences)
+    assert breakdown.items["Housing"] == [("Rent", 120_000)]
+    # Two Friday occurrences of the same expense are summed into a single named entry.
+    assert breakdown.items["Investments"] == [("Investment", 20_000)]
 
 
 def test_biweekly_occurrence_exactly_on_cycle_start_date() -> None:
@@ -281,3 +305,23 @@ def test_biweekly_without_anchor_date_raises_validation_error() -> None:
             recurrence_value=0,
             recurrence_anchor=None,
         )
+
+
+def test_remaining_expenses_excludes_only_strictly_past_due_occurrences() -> None:
+    cycle = Cycle(
+        start_date=date(2026, 7, 31),
+        end_date=date(2026, 8, 13),
+        next_pay_date=date(2026, 8, 14),
+    )
+    schedule = PaySchedule(anchor_date=date(2026, 7, 31), amount=200_000)
+    expenses = [
+        _expense("Past due", 10_000, "day_of_month", 31, expense_id=1),  # July 31
+        _expense("Due today", 20_000, "day_of_month", 5, expense_id=2),  # Aug 5
+        _expense("Upcoming", 30_000, "day_of_month", 13, expense_id=3),  # Aug 13
+    ]
+    occurrences = occurrences_in_cycle(expenses, cycle)
+    reference_date = date(2026, 8, 5)
+    result = compute_leftover(schedule, occurrences, cycle, reference_date)
+    assert result.total_expenses == 60_000
+    # "Due today" and "Upcoming" remain; "Past due" (July 31) is excluded.
+    assert result.remaining_expenses == 50_000

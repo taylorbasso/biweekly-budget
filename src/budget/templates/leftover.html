@@ -6,19 +6,89 @@
 {% if pay_schedule is none %}
   <p>No pay schedule recorded yet. <a href="/pay-schedule">Set up your pay schedule</a> to get started.</p>
 {% else %}
-  <p>
-    Cycle: {{ result.cycle.start_date.isoformat() }} through {{ result.cycle.end_date.isoformat() }}
-    (next pay date {{ result.cycle.next_pay_date.isoformat() }})
-  </p>
+  <form method="get" action="{{ url_for('budget.leftover') }}" class="cycle-select-form">
+    <label for="cycle-select">Cycle:</label>
+    <select id="cycle-select" name="date" onchange="this.form.submit()">
+      {% for opt in cycle_options %}
+        <option value="{{ opt.start_date.isoformat() }}" {% if opt.start_date == selected_start %}selected{% endif %}>
+          {{ opt.start_date.isoformat() }} – {{ opt.end_date.isoformat() }} (pay {{ opt.next_pay_date.isoformat() }})
+        </option>
+      {% endfor %}
+    </select>
+    <noscript><button type="submit">Go</button></noscript>
+  </form>
   <p>Pay amount: ${{ "%.2f"|format(result.pay_amount / 100) }}</p>
-  <p>Total expenses: ${{ "%.2f"|format(result.total_expenses / 100) }}</p>
+  <p>Total expenses this pay period: ${{ "%.2f"|format(result.total_expenses / 100) }}</p>
+  <p>Remaining expenses this pay period: ${{ "%.2f"|format(result.remaining_expenses / 100) }}</p>
   <p><strong>Leftover: ${{ "%.2f"|format(result.leftover_amount / 100) }}</strong></p>
+
+  {% if chart.slices %}
+    <div class="chart-container">
+      <svg viewBox="0 0 200 200" class="cycle-chart" role="img" aria-label="Spending breakdown for this cycle">
+        {% for slice in chart.slices %}
+          {% if slice.is_full_circle %}
+            <circle cx="100" cy="100" r="90" fill="{{ slice.color }}"
+                    data-label="{{ slice.label }}" data-amount="{{ '%.2f'|format(slice.amount / 100) }}"
+                    data-items='{{ category_items.get(slice.label, []) | tojson }}'>
+            </circle>
+          {% else %}
+            <path d="{{ slice.path_d }}" fill="{{ slice.color }}"
+                  data-label="{{ slice.label }}" data-amount="{{ '%.2f'|format(slice.amount / 100) }}"
+                  data-items='{{ category_items.get(slice.label, []) | tojson }}'>
+            </path>
+          {% endif %}
+        {% endfor %}
+      </svg>
+      <ul class="chart-legend">
+        {% for slice in chart.slices %}
+          <li><span class="legend-swatch" style="background-color: {{ slice.color }}"></span>{{ slice.label }} — ${{ "%.2f"|format(slice.amount / 100) }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div id="chart-tooltip" class="chart-tooltip" hidden></div>
+    <script>
+      (function () {
+        var tooltip = document.getElementById("chart-tooltip");
+        var slices = document.querySelectorAll(".cycle-chart [data-label]");
+        slices.forEach(function (el) {
+          el.addEventListener("mousemove", function (event) {
+            var items;
+            try {
+              items = JSON.parse(el.dataset.items || "[]");
+            } catch (err) {
+              items = [];
+            }
+            tooltip.innerHTML = "";
+            var header = document.createElement("div");
+            header.className = "chart-tooltip-header";
+            header.textContent = el.dataset.label + ": $" + el.dataset.amount;
+            tooltip.appendChild(header);
+            items.forEach(function (item) {
+              var line = document.createElement("div");
+              line.className = "chart-tooltip-item";
+              line.textContent = item[0] + ": $" + (item[1] / 100).toFixed(2);
+              tooltip.appendChild(line);
+            });
+            tooltip.style.left = event.clientX + 14 + "px";
+            tooltip.style.top = event.clientY + 14 + "px";
+            tooltip.hidden = false;
+          });
+          el.addEventListener("mouseleave", function () {
+            tooltip.hidden = true;
+          });
+        });
+      })();
+    </script>
+    {% if chart.overspent %}
+      <p class="overspent-notice">Overspent this cycle by ${{ "%.2f"|format(chart.overspent_amount / 100) }} — no leftover to show.</p>
+    {% endif %}
+  {% endif %}
 
   <h2>Expenses due this cycle</h2>
   {% if result.occurrences %}
     <ul>
       {% for occurrence in result.occurrences %}
-        <li>
+        <li class="{{ 'expense-past-due' if occurrence.due_date < today else '' }}">
           {{ occurrence.due_date.isoformat() }} — {{ occurrence.name }}
           (${{ "%.2f"|format(occurrence.amount / 100) }}, {{ occurrence.category }})
         </li>

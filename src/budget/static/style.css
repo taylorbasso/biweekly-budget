@@ -75,6 +75,13 @@ h2 {
   color: var(--muted);
 }
 
+h3 {
+  font-size: 0.95rem;
+  margin: 16px 0 8px;
+  color: var(--text);
+  font-weight: 600;
+}
+
 p {
   margin: 0 0 12px;
 }
@@ -144,12 +151,15 @@ form {
   padding: 20px;
 }
 
-form[style*="inline"] {
-  display: inline;
-  background: none;
-  border: none;
-  padding: 0;
-  max-width: none;
+.expense-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.expense-actions form {
+  display: contents;
 }
 
 label {
@@ -191,10 +201,135 @@ button:hover {
 }
 
 td button {
+  align-self: auto;
   background: var(--error-bg);
   color: var(--error);
   padding: 5px 10px;
   font-size: 0.85rem;
+}
+
+.btn-edit {
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--accent);
+  text-decoration: none;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+
+.btn-edit:hover {
+  background: var(--border);
+}
+
+.cycle-select-form {
+  flex-direction: row;
+  align-items: center;
+  max-width: none;
+  width: fit-content;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.cycle-select-form label {
+  flex-direction: row;
+  align-items: center;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.cycle-select-form select {
+  min-width: 320px;
+}
+
+.expense-past-due {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.chart-container {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.cycle-chart {
+  width: 180px;
+  height: 180px;
+  flex-shrink: 0;
+}
+
+.cycle-chart path,
+.cycle-chart circle {
+  cursor: default;
+}
+
+.chart-tooltip {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+.chart-tooltip[hidden] {
+  display: none;
+}
+
+.chart-tooltip-header {
+  font-weight: 600;
+}
+
+.chart-tooltip-item {
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.chart-legend {
+  border: none;
+  background: none;
+  flex: 1;
+  min-width: 200px;
+}
+
+.chart-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: none;
+  padding: 4px 0;
+}
+
+.legend-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.overspent-notice {
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error);
+  border-radius: var(--radius);
+  padding: 10px 14px;
 }
 
 .error {
