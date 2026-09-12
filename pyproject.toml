@@ -9,6 +9,7 @@ description = "Personal biweekly pay-cycle leftover and category-breakdown calcu
 requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0",
+    "gunicorn>=22.0",
 ]
 
 [project.optional-dependencies]
@@ -19,6 +20,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+budget = ["templates/*", "static/*"]
 
 [tool.mypy]
 python_version = "3.11"
