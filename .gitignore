@@ -13,3 +13,5 @@ build/
 *.sqlite3
 .DS_Store
 .dev-server.log
+deploy/.env
+deploy/task-def.rendered.json
