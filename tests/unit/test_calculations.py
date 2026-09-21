@@ -20,6 +20,7 @@ from budget.calculations import (
     occurrences_in_cycle,
     payoff_months,
     total_spendable,
+    utilization_percent,
 )
 from budget.cycles import Cycle
 from budget.models import (
@@ -609,3 +610,32 @@ def test_compute_credit_cards_empty_list_gives_zero_totals() -> None:
     assert totals.balance == 0
     assert totals.minimum_payment == 0
     assert totals.actual_payment == 0
+    assert totals.credit_limit == 0
+    assert totals.utilization_percent is None
+
+
+def test_utilization_percent_normal_case() -> None:
+    assert utilization_percent(30_000, 100_000) == pytest.approx(30.0)
+
+
+def test_utilization_percent_zero_limit_is_not_applicable() -> None:
+    assert utilization_percent(30_000, 0) is None
+
+
+def test_utilization_percent_can_exceed_100_when_over_limit() -> None:
+    assert utilization_percent(120_000, 100_000) == pytest.approx(120.0)
+
+
+def test_compute_credit_cards_includes_per_row_and_total_utilization() -> None:
+    accounts = [
+        CreditAccount(id=1, name="Visa", balance=30_000, credit_limit=100_000),
+        CreditAccount(id=2, name="No Limit Tracked", balance=50_000, credit_limit=0),
+    ]
+    rows, totals = compute_credit_cards(accounts)
+    assert rows[0].utilization_percent == pytest.approx(30.0)
+    assert rows[1].utilization_percent is None
+    assert totals.credit_limit == 100_000
+    # Aggregate utilization uses total balance / total credit limit, not an
+    # average of per-row percentages, since the second account's limit isn't
+    # tracked (0) and shouldn't be treated as a 0%-utilized account.
+    assert totals.utilization_percent == pytest.approx(80.0)

@@ -76,6 +76,7 @@ class CreditAccount:
     interest_rate: float = 0  # annual percentage, e.g. 24.99 means 24.99% APR
     minimum_payment: int = 0  # integer cents
     actual_payment: int = 0  # integer cents; 0 means "not set" (falls back to minimum)
+    credit_limit: int = 0  # integer cents; 0 means "not tracked" (usage % shown as N/A)
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -88,3 +89,5 @@ class CreditAccount:
             raise ValidationError("minimum_payment must not be negative")
         if self.actual_payment < 0:
             raise ValidationError("actual_payment must not be negative")
+        if self.credit_limit < 0:
+            raise ValidationError("credit_limit must not be negative")

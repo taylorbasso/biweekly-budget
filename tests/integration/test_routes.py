@@ -63,6 +63,7 @@ def _seed_credit_account(
     interest_rate: float = 0,
     minimum_payment: int = 0,
     actual_payment: int = 0,
+    credit_limit: int = 0,
 ) -> int:
     with app.app_context():
         conn = get_db()
@@ -75,6 +76,7 @@ def _seed_credit_account(
                 interest_rate=interest_rate,
                 minimum_payment=minimum_payment,
                 actual_payment=actual_payment,
+                credit_limit=credit_limit,
             ),
         )
 
@@ -545,3 +547,54 @@ def test_credit_cards_payoff_time_display_states(app, client: FlaskClient) -> No
     assert "25 months" in body
     assert "Paid off" in body
     assert "Never at this rate" in body
+
+
+def test_credit_cards_shows_usage_percent_and_credit_limit_total(
+    app, client: FlaskClient
+) -> None:
+    _seed_credit_account(app, "Visa", 30_000, credit_limit=100_000)
+    _seed_credit_account(app, "Untracked Limit", 50_000, credit_limit=0)
+
+    body = client.get("/credit-cards").get_data(as_text=True)
+
+    assert "30.0%" in body  # Visa: 30000/100000
+    assert "N/A" in body  # Untracked Limit has no credit_limit set
+    assert "$1,000.00" in body  # totals.credit_limit
+
+
+def test_credit_account_create_and_edit_with_credit_limit(
+    app, client: FlaskClient
+) -> None:
+    client.post(
+        "/credit-cards",
+        data={
+            "name": "Visa",
+            "balance": "300.00",
+            "interest_rate": "0",
+            "minimum_payment": "0",
+            "actual_payment": "0",
+            "credit_limit": "1000.00",
+        },
+    )
+
+    with app.app_context():
+        conn = get_db()
+        account = db.list_credit_accounts(conn)[0]
+    assert account.credit_limit == 100_000
+
+    client.post(
+        f"/credit-cards/{account.id}/edit",
+        data={
+            "name": "Visa",
+            "balance": "300.00",
+            "interest_rate": "0",
+            "minimum_payment": "0",
+            "actual_payment": "0",
+            "credit_limit": "1500.00",
+        },
+    )
+
+    with app.app_context():
+        conn = get_db()
+        updated = db.get_credit_account(conn, account.id)
+    assert updated.credit_limit == 150_000

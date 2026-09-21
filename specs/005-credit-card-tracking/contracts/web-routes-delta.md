@@ -7,8 +7,9 @@ the existing `Account` CRUD routes (`/runway/accounts/...`) documented in
 ## `GET /credit-cards`
 
 Renders the Credit Cards page: a table of all `CreditAccount` entries (name, balance,
-interest rate, minimum payment, actual payment, computed payoff time) plus a Totals row
-(balance, minimum payment, actual payment summed; payoff-time cell blank/dash).
+credit limit, usage %, interest rate, minimum payment, actual payment, computed payoff
+time) plus a Totals row (balance, minimum payment, actual payment, credit limit summed,
+plus an aggregate usage %; payoff-time cell blank/dash).
 
 **Response**: 200, `credit_cards.html`.
 
@@ -22,7 +23,8 @@ Renders the add-entry form (empty).
 
 Creates a new `CreditAccount` from form fields `name`, `balance` (dollars, converted to
 cents), `interest_rate` (percent, e.g. `24.99`), `minimum_payment` (dollars),
-`actual_payment` (dollars, optional — blank treated as `0`).
+`actual_payment` (dollars, optional — blank treated as `0`), `credit_limit` (dollars,
+optional — blank/`0` means usage % is not tracked for this entry).
 
 - **Success**: redirect to `GET /credit-cards`.
 - **Validation failure** (negative amounts, non-numeric input, empty name): 400, re-render

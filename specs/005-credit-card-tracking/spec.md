@@ -86,9 +86,10 @@ A user wants to know, given an entry's current balance, interest rate, and actua
 ### Functional Requirements
 
 - **FR-001**: System MUST provide a "Credit Cards" page, reachable from the app's main navigation, listing every stored credit card/loan entry in a table.
-- **FR-002**: Each entry MUST record: a name/label, current balance owed, annual interest rate, minimum payment amount, and actual (planned) payment amount.
-- **FR-003**: The table MUST display, per entry, at minimum: name, balance, minimum payment, actual payment, and estimated payoff time.
-- **FR-004**: The table MUST include a "Totals" row summing the balance, minimum payment, and actual payment columns across all entries. The payoff time column MUST NOT be summed in the Totals row (it is not a meaningful aggregate).
+- **FR-002**: Each entry MUST record: a name/label, current balance owed, annual interest rate, minimum payment amount, actual (planned) payment amount, and an optional credit limit.
+- **FR-003**: The table MUST display, per entry, at minimum: name, balance, minimum payment, actual payment, estimated payoff time, credit limit, and usage percentage (balance ÷ credit limit).
+- **FR-004**: The table MUST include a "Totals" row summing the balance, minimum payment, actual payment, and credit limit columns across all entries, plus an aggregate usage percentage (total balance ÷ total credit limit). The payoff time column MUST NOT be summed in the Totals row (it is not a meaningful aggregate).
+- **FR-014**: When an entry's credit limit is unset (zero), its usage percentage MUST display as not-applicable rather than 0% or an error; an unset limit MUST be excluded from the Totals row's aggregate usage percentage denominator only insofar as it contributes 0 to the credit-limit sum (i.e. aggregate usage is always total balance ÷ total credit limit, computed once, not an average of per-row percentages).
 - **FR-005**: Users MUST be able to add a new entry via a form capturing all fields in FR-002.
 - **FR-006**: Users MUST be able to edit any field of an existing entry.
 - **FR-007**: Users MUST be able to delete an existing entry, with a confirmation step to prevent accidental deletion.
@@ -97,11 +98,11 @@ A user wants to know, given an entry's current balance, interest rate, and actua
 - **FR-010**: System MUST express payoff time in a human-readable duration (e.g., months, or years and months for long durations).
 - **FR-011**: System MUST distinguish, in the payoff time display, between "will pay off in N months," "already paid off" (zero balance), and "will never pay off at this payment level" (payment does not exceed accruing interest).
 - **FR-012**: This feature stores and displays credit card/loan data independently of the existing pay-cycle leftover and category-breakdown calculations; entries here are not automatically counted as recurring expenses in the leftover calculation.
-- **FR-013**: Money fields (balance, minimum payment, actual payment) MUST be stored and computed internally as integer cents, consistent with the rest of the application.
+- **FR-013**: Money fields (balance, minimum payment, actual payment, credit limit) MUST be stored and computed internally as integer cents, consistent with the rest of the application.
 
 ### Key Entities
 
-- **CreditAccount**: Represents a single credit card or loan being tracked. Attributes: name/label, current balance (integer cents), annual interest rate (percentage), minimum payment (integer cents), actual/planned payment (integer cents). Payoff time is a computed value, not stored. Independent of PaySchedule, RecurringExpense, and any other existing entity — no relationship to pay cycles.
+- **CreditAccount**: Represents a single credit card or loan being tracked. Attributes: name/label, current balance (integer cents), annual interest rate (percentage), minimum payment (integer cents), actual/planned payment (integer cents), credit limit (integer cents, optional — 0 means "not tracked"). Payoff time and usage percentage are computed values, not stored. Independent of PaySchedule, RecurringExpense, and any other existing entity — no relationship to pay cycles.
 
 ## Success Criteria *(mandatory)*
 

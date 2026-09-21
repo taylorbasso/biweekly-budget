@@ -13,6 +13,8 @@ loans too, not just credit cards.</p>
     <tr>
       <th>Name</th>
       <th>Balance</th>
+      <th>Credit Limit</th>
+      <th>Usage %</th>
       <th>Interest Rate</th>
       <th>Minimum Payment</th>
       <th>Actual Payment</th>
@@ -25,6 +27,8 @@ loans too, not just credit cards.</p>
     <tr>
       <td>{{ row.account.name }}</td>
       <td>${{ row.account.balance | usd }}</td>
+      <td>${{ row.account.credit_limit | usd }}</td>
+      <td>{{ row.utilization_percent | utilization }}</td>
       <td>{{ row.account.interest_rate }}%</td>
       <td>${{ row.account.minimum_payment | usd }}</td>
       <td>${{ row.account.actual_payment | usd }}</td>
@@ -42,6 +46,8 @@ loans too, not just credit cards.</p>
     <tr>
       <th>Totals</th>
       <th>${{ totals.balance | usd }}</th>
+      <th>${{ totals.credit_limit | usd }}</th>
+      <th>{{ totals.utilization_percent | utilization }}</th>
       <th></th>
       <th>${{ totals.minimum_payment | usd }}</th>
       <th>${{ totals.actual_payment | usd }}</th>

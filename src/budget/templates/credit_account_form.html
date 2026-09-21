@@ -32,6 +32,11 @@
     <input type="number" step="0.01" min="0" name="actual_payment"
            value="{{ '%.2f'|format(account.actual_payment / 100) if account else '' }}">
   </label>
+  <label>
+    Credit Limit (dollars, optional — leave at 0 if not tracking usage %)
+    <input type="number" step="0.01" min="0" name="credit_limit"
+           value="{{ '%.2f'|format(account.credit_limit / 100) if account else '' }}">
+  </label>
   <button type="submit">Save</button>
 </form>
 {% endblock %}

@@ -311,6 +311,8 @@ def _credit_account_from_form(credit_account_id: int | None) -> CreditAccount:
     minimum_payment = _parse_dollars(request.form.get("minimum_payment", "") or "0")
     actual_payment_raw = request.form.get("actual_payment", "").strip()
     actual_payment = _parse_dollars(actual_payment_raw) if actual_payment_raw else 0
+    credit_limit_raw = request.form.get("credit_limit", "").strip()
+    credit_limit = _parse_dollars(credit_limit_raw) if credit_limit_raw else 0
     return CreditAccount(
         id=credit_account_id,
         name=name,
@@ -318,6 +320,7 @@ def _credit_account_from_form(credit_account_id: int | None) -> CreditAccount:
         interest_rate=interest_rate,
         minimum_payment=minimum_payment,
         actual_payment=actual_payment,
+        credit_limit=credit_limit,
     )
 
 

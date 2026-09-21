@@ -26,6 +26,7 @@ def create_app(db_path: str | Path | None = None) -> Flask:
 
     app.jinja_env.filters["usd"] = _format_cents_as_usd
     app.jinja_env.filters["payoff"] = _format_payoff_months
+    app.jinja_env.filters["utilization"] = _format_utilization_percent
 
     from budget.routes import bp
 
@@ -44,6 +45,12 @@ def _format_payoff_months(months: int | None) -> str:
     if months == 0:
         return "Paid off"
     return f"{months} months"
+
+
+def _format_utilization_percent(percent: float | None) -> str:
+    if percent is None:
+        return "N/A"
+    return f"{percent:.1f}%"
 
 
 def get_db() -> sqlite3.Connection:

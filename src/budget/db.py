@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS credit_account (
     balance INTEGER NOT NULL,
     interest_rate REAL NOT NULL DEFAULT 0,
     minimum_payment INTEGER NOT NULL DEFAULT 0,
-    actual_payment INTEGER NOT NULL DEFAULT 0
+    actual_payment INTEGER NOT NULL DEFAULT 0,
+    credit_limit INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -51,6 +52,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     conn.executescript(SCHEMA)
     _migrate_add_recurrence_anchor(conn)
     _migrate_add_essential(conn)
+    _migrate_add_credit_limit(conn)
     conn.commit()
 
 
@@ -65,6 +67,14 @@ def _migrate_add_essential(conn: sqlite3.Connection) -> None:
     if "essential" not in columns:
         conn.execute(
             "ALTER TABLE recurring_expense ADD COLUMN essential INTEGER NOT NULL DEFAULT 0"
+        )
+
+
+def _migrate_add_credit_limit(conn: sqlite3.Connection) -> None:
+    columns = {row["name"] for row in conn.execute("PRAGMA table_info(credit_account)")}
+    if "credit_limit" not in columns:
+        conn.execute(
+            "ALTER TABLE credit_account ADD COLUMN credit_limit INTEGER NOT NULL DEFAULT 0"
         )
 
 
@@ -223,13 +233,14 @@ def _row_to_credit_account(row: sqlite3.Row) -> CreditAccount:
         interest_rate=row["interest_rate"],
         minimum_payment=row["minimum_payment"],
         actual_payment=row["actual_payment"],
+        credit_limit=row["credit_limit"],
     )
 
 
 def list_credit_accounts(conn: sqlite3.Connection) -> list[CreditAccount]:
     rows = conn.execute(
-        "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment "
-        "FROM credit_account ORDER BY id"
+        "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment, "
+        "credit_limit FROM credit_account ORDER BY id"
     ).fetchall()
     return [_row_to_credit_account(row) for row in rows]
 
@@ -238,8 +249,8 @@ def get_credit_account(
     conn: sqlite3.Connection, credit_account_id: int
 ) -> CreditAccount | None:
     row = conn.execute(
-        "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment "
-        "FROM credit_account WHERE id = ?",
+        "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment, "
+        "credit_limit FROM credit_account WHERE id = ?",
         (credit_account_id,),
     ).fetchone()
     if row is None:
@@ -250,14 +261,15 @@ def get_credit_account(
 def create_credit_account(conn: sqlite3.Connection, credit_account: CreditAccount) -> int:
     cursor = conn.execute(
         "INSERT INTO credit_account "
-        "(name, balance, interest_rate, minimum_payment, actual_payment) "
-        "VALUES (?, ?, ?, ?, ?)",
+        "(name, balance, interest_rate, minimum_payment, actual_payment, credit_limit) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
         (
             credit_account.name,
             credit_account.balance,
             credit_account.interest_rate,
             credit_account.minimum_payment,
             credit_account.actual_payment,
+            credit_account.credit_limit,
         ),
     )
     conn.commit()
@@ -270,13 +282,14 @@ def update_credit_account(
 ) -> None:
     conn.execute(
         "UPDATE credit_account SET name = ?, balance = ?, interest_rate = ?, "
-        "minimum_payment = ?, actual_payment = ? WHERE id = ?",
+        "minimum_payment = ?, actual_payment = ?, credit_limit = ? WHERE id = ?",
         (
             credit_account.name,
             credit_account.balance,
             credit_account.interest_rate,
             credit_account.minimum_payment,
             credit_account.actual_payment,
+            credit_account.credit_limit,
             credit_account_id,
         ),
     )

@@ -83,3 +83,13 @@ def test_credit_account_rejects_negative_minimum_payment() -> None:
 def test_credit_account_rejects_negative_actual_payment() -> None:
     with pytest.raises(ValidationError):
         CreditAccount(id=None, name="Visa", balance=100, actual_payment=-1)
+
+
+def test_credit_account_credit_limit_defaults_to_zero() -> None:
+    account = CreditAccount(id=None, name="Visa", balance=100)
+    assert account.credit_limit == 0
+
+
+def test_credit_account_rejects_negative_credit_limit() -> None:
+    with pytest.raises(ValidationError):
+        CreditAccount(id=None, name="Visa", balance=100, credit_limit=-1)

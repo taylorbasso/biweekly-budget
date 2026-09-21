@@ -278,10 +278,17 @@ def effective_payment(account: CreditAccount) -> int:
     return account.actual_payment if account.actual_payment > 0 else account.minimum_payment
 
 
+def utilization_percent(balance: int, credit_limit: int) -> float | None:
+    if credit_limit <= 0:
+        return None
+    return balance / credit_limit * 100
+
+
 @dataclass(frozen=True)
 class CreditAccountRow:
     account: CreditAccount
     payoff_months: int | None
+    utilization_percent: float | None
 
 
 @dataclass(frozen=True)
@@ -289,6 +296,8 @@ class CreditCardsTotals:
     balance: int
     minimum_payment: int
     actual_payment: int
+    credit_limit: int
+    utilization_percent: float | None
 
 
 def compute_credit_cards(
@@ -300,12 +309,17 @@ def compute_credit_cards(
             payoff_months=payoff_months(
                 account.balance, account.interest_rate, effective_payment(account)
             ),
+            utilization_percent=utilization_percent(account.balance, account.credit_limit),
         )
         for account in accounts
     ]
+    total_balance = sum((account.balance for account in accounts), 0)
+    total_credit_limit = sum((account.credit_limit for account in accounts), 0)
     totals = CreditCardsTotals(
-        balance=sum((account.balance for account in accounts), 0),
+        balance=total_balance,
         minimum_payment=sum((account.minimum_payment for account in accounts), 0),
         actual_payment=sum((account.actual_payment for account in accounts), 0),
+        credit_limit=total_credit_limit,
+        utilization_percent=utilization_percent(total_balance, total_credit_limit),
     )
     return rows, totals
