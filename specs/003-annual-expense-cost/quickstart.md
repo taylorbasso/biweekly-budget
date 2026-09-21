@@ -13,7 +13,7 @@ Validates the feature end-to-end using the same example expenses from
 
 ## Scenario 1: View annual cost per expense (US1)
 
-1. Open `http://127.0.0.1:5000/annual-cost`.
+1. Open `http://127.0.0.1:5001/annual-cost`.
 2. **Expected**: each expense shows its computed annual cost:
    - `Rent`: $1200.00 × 12 = **$14,400.00**
    - `Investment transfer`: $100.00 × 52 = **$5,200.00**
@@ -27,13 +27,13 @@ Validates the feature end-to-end using the same example expenses from
 ## Scenario 3: Empty state (US2 edge case)
 
 1. Against a fresh database with no recurring expenses recorded, open
-   `http://127.0.0.1:5000/annual-cost`.
+   `http://127.0.0.1:5001/annual-cost`.
 2. **Expected**: an empty-state message is shown (no table), and the grand total reads
    `$0.00`.
 
 ## Scenario 4: Grouped by category, largest first (US3)
 
-1. With the three example expenses in place, open `http://127.0.0.1:5000/annual-cost`.
+1. With the three example expenses in place, open `http://127.0.0.1:5001/annual-cost`.
 2. **Expected**: three category groups in alphabetical order —
    - `Housing` — subtotal $14,400.00 — contains `Rent` ($14,400.00)
    - `Investments` — subtotal $5,200.00 — contains `Investment transfer` ($5,200.00)
@@ -46,10 +46,10 @@ Validates the feature end-to-end using the same example expenses from
 
 ## Scenario 5: Read-only page (FR-010)
 
-1. On `http://127.0.0.1:5000/annual-cost`, confirm there are no edit/delete controls or
+1. On `http://127.0.0.1:5001/annual-cost`, confirm there are no edit/delete controls or
    forms for any listed expense.
 2. **Expected**: managing expenses (add/edit/delete) is only available via
-   `http://127.0.0.1:5000/expenses`, unchanged by this feature.
+   `http://127.0.0.1:5001/expenses`, unchanged by this feature.
 
 ## Automated validation
 

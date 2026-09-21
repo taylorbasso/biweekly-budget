@@ -19,18 +19,18 @@ pip install -e .
 flask --app src.budget.app run
 ```
 
-The app starts bound to `127.0.0.1:5000` (Constitution Principle IV — never exposed
+The app starts bound to `127.0.0.1:5001` (Constitution Principle IV — never exposed
 beyond localhost by default).
 
 ## Scenario 1: Set the pay schedule (US2)
 
-1. Open `http://127.0.0.1:5000/pay-schedule`.
+1. Open `http://127.0.0.1:5001/pay-schedule`.
 2. Submit anchor date `2026-07-31`, amount `2000.00`.
 3. **Expected**: page shows anchor date `2026-07-31` and amount `$2,000.00`.
 
 ## Scenario 2: Record recurring expenses with categories (US3, US4 setup)
 
-1. Open `http://127.0.0.1:5000/expenses/new`.
+1. Open `http://127.0.0.1:5001/expenses/new`.
 2. Add: name `Rent`, amount `1200.00`, day-of-month `1`, category `Housing`.
 3. Add: name `Investment transfer`, amount `100.00`, day-of-week `Friday`, category
    `Investments`.
@@ -39,7 +39,7 @@ beyond localhost by default).
 
 ## Scenario 3: Check leftover for the current cycle (US1)
 
-1. Open `http://127.0.0.1:5000/?date=2026-08-01`.
+1. Open `http://127.0.0.1:5001/?date=2026-08-01`.
 2. **Expected**: cycle shown as `2026-07-31` through `2026-08-13`, next pay date
    `2026-08-14`.
    - `Rent` ($1200, day-of-month 1) is due Aug 1 — inside the cycle (`07-31`–`08-13`
@@ -53,7 +53,7 @@ beyond localhost by default).
 
 ## Scenario 4: Category breakdown for the same cycle (US4)
 
-1. Open `http://127.0.0.1:5000/breakdown?date=2026-08-01`.
+1. Open `http://127.0.0.1:5001/breakdown?date=2026-08-01`.
 2. **Expected**: same cycle range as Scenario 3.
    - `Housing`: $1200.00
    - `Investments`: $200.00

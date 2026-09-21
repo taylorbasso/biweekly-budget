@@ -8,7 +8,7 @@ Manual validation walkthrough, mirroring the worked examples in `spec.md` User S
 ./scripts/dev-server.sh restart   # after implementation lands in src/budget/*.py
 ```
 
-Open `http://127.0.0.1:5000/runway` in a browser (or drive it with the chrome-devtools
+Open `http://127.0.0.1:5001/runway` in a browser (or drive it with the chrome-devtools
 MCP tools per this project's UI-testing convention).
 
 ## Scenario A: single account, simple runway

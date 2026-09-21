@@ -71,15 +71,18 @@ Wraps starting/stopping/restarting the Flask dev server so there's one approvabl
 command instead of ad hoc `ps`/`kill`/`flask run` invocations:
 
 ```bash
-./scripts/dev-server.sh start     # start if not already running (127.0.0.1:5000)
+./scripts/dev-server.sh start     # start if not already running (127.0.0.1:5001)
 ./scripts/dev-server.sh stop      # stop if running
 ./scripts/dev-server.sh restart   # stop + start — use after any src/budget/*.py change
 ./scripts/dev-server.sh status    # report whether it's running and its PID
 ```
 
-It finds the server by whatever's listening on port 5000 (override with
+It finds the server by whatever's listening on port 5001 (override with
 `BUDGET_DEV_PORT`), so it safely takes over a server started outside the script too.
-Logs go to `.dev-server.log` (gitignored) in the repo root.
+Logs go to `.dev-server.log` (gitignored) in the repo root. Port 5001, not the Flask
+default 5000: macOS AirPlay Receiver squats on 5000 whenever nothing else is bound to
+it, so a stopped dev server silently gets replaced by AirPlay and returns a
+confusing 403 instead of connection-refused.
 
 ## Working here
 
@@ -91,7 +94,7 @@ Logs go to `.dev-server.log` (gitignored) in the repo root.
   checked against the constitution before proceeding.
 - When testing a UI/route change in a browser, use the chrome-devtools MCP tools
   (navigate, snapshot, click, fill) against the running dev server — not `curl`.
-- Only one dev server should ever be running at a time, on port 5000. Use
+- Only one dev server should ever be running at a time, on port 5001. Use
   `./scripts/dev-server.sh {start|stop|restart|status}` for all of it rather than manual
   `ps`/`kill`/`flask run` — it finds whatever's already on the port (even if started
   outside the script) and takes it over rather than leaving a second instance running on

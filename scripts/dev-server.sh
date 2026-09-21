@@ -4,11 +4,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PORT="${BUDGET_DEV_PORT:-5000}"
+# 5001, not 5000: macOS AirPlay Receiver (ControlCenter) squats on port 5000
+# whenever nothing else is bound to it, so a stopped dev server gets silently
+# replaced by AirPlay and requests 403 instead of connection-refusing.
+PORT="${BUDGET_DEV_PORT:-5001}"
 LOG_FILE=".dev-server.log"
 
 find_pid() {
-  lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | awk '$1 == "Python" {print $2; exit}'
+  # `|| true`: lsof exits non-zero when nothing matches, which under
+  # `set -eo pipefail` would otherwise silently kill this script the instant
+  # nothing is listening on $PORT (previously masked on port 5000, since
+  # something — AirPlay Receiver — was always listening there).
+  lsof -nP -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | awk '$1 == "Python" {print $2; exit}' || true
 }
 
 start() {

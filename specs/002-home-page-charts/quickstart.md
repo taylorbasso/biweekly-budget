@@ -13,7 +13,7 @@ August 14).
 
 ## Scenario 1: Chart on the primary cycle (US1)
 
-1. Open `http://127.0.0.1:5000/?date=2026-08-01`.
+1. Open `http://127.0.0.1:5001/?date=2026-08-01`.
 2. **Expected**: same figures as 001's Scenario 3 (total expenses $1415.00, leftover
    $585.00), plus a pie chart with 3 slices:
    - `Housing` — $1200.00 (~60% of the $2000 pay amount)
