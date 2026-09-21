@@ -93,7 +93,8 @@ confusing 403 instead of connection-refused.
 - Any change that touches interfaces, dependencies, or the CLI/Flask boundary should be
   checked against the constitution before proceeding.
 - When testing a UI/route change in a browser, use the chrome-devtools MCP tools
-  (navigate, snapshot, click, fill) against the running dev server — not `curl`.
+  (navigate, snapshot, click, fill) against the running dev server — not `curl`. Close
+  the page (`mcp__chrome-devtools__close_page`) once done testing — don't leave it open.
 - Only one dev server should ever be running at a time, on port 5001. Use
   `./scripts/dev-server.sh {start|stop|restart|status}` for all of it rather than manual
   `ps`/`kill`/`flask run` — it finds whatever's already on the port (even if started
