@@ -15,6 +15,7 @@
             <th>Name</th>
             <th>Amount</th>
             <th>Recurrence</th>
+            <th>Essential</th>
             <th></th>
           </tr>
         </thead>
@@ -22,7 +23,7 @@
           {% for expense in category_expenses %}
           <tr>
             <td>{{ expense.name }}</td>
-            <td>${{ "%.2f"|format(expense.amount / 100) }}</td>
+            <td>${{ expense.amount | usd }}</td>
             <td>
               {% if expense.recurrence_type == "day_of_month" %}
                 Day {{ expense.recurrence_value }} of month
@@ -31,6 +32,11 @@
               {% else %}
                 Every 14 days from {{ expense.recurrence_anchor.isoformat() }}
               {% endif %}
+            </td>
+            <td>
+              <form method="post" action="/expenses/{{ expense.id }}/toggle-essential">
+                <input type="checkbox" class="essential-toggle" {% if expense.essential %}checked{% endif %}>
+              </form>
             </td>
             <td class="expense-actions">
               <a class="btn-edit" href="/expenses/{{ expense.id }}/edit">Edit</a>
@@ -47,4 +53,5 @@
 {% else %}
 <p>No expenses recorded.</p>
 {% endif %}
+<script src="{{ url_for('static', filename='essential_toggle.js') }}" defer></script>
 {% endblock %}

@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Annual Cost — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Annual Cost</h1>
+
+{% if breakdown.categories %}
+  {% for category in breakdown.categories %}
+    <h2>{{ category.category }} — ${{ category.subtotal | usd }}</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Annual Cost</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in category.items %}
+        <tr>
+          <td>{{ item.name }}</td>
+          <td>${{ item.annual_cost | usd }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endfor %}
+  <p><strong>Grand total: ${{ breakdown.grand_total | usd }}</strong></p>
+{% else %}
+  <p>No expenses recorded.</p>
+  <p><strong>Grand total: ${{ breakdown.grand_total | usd }}</strong></p>
+{% endif %}
+{% endblock %}

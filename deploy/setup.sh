@@ -58,15 +58,29 @@ if [ "$CLUSTER_STATUS" != "ACTIVE" ]; then
     --default-capacity-provider-strategy capacityProvider=FARGATE_SPOT,weight=1 >/dev/null
 fi
 
-echo "==> Default VPC + subnets"
-VPC_ID="$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
-  --query 'Vpcs[0].VpcId' --output text)"
-if [ "$VPC_ID" = "None" ]; then
-  echo "No default VPC found — create one or edit this script to use a specific VPC." >&2
-  exit 1
+echo "==> VPC + public subnets"
+# Prefer subnets whose Name tag looks public (matches this account's
+# PublicSubnet-A/B/C/D convention); only falls back to "every subnet in the
+# default VPC" if no such tagged subnets exist anywhere.
+PUBLIC_SUBNET_ROWS="$(aws ec2 describe-subnets \
+  --filters "Name=tag:Name,Values=*ublic*" \
+  --query 'Subnets[].[SubnetId,VpcId]' --output text)"
+
+if [ -n "$PUBLIC_SUBNET_ROWS" ]; then
+  VPC_ID="$(echo "$PUBLIC_SUBNET_ROWS" | head -1 | awk '{print $2}')"
+  SUBNET_IDS="$(echo "$PUBLIC_SUBNET_ROWS" | awk -v vpc="$VPC_ID" '$2==vpc {print $1}' | paste -sd, -)"
+  echo "Using public subnets in $VPC_ID: $SUBNET_IDS"
+else
+  VPC_ID="$(aws ec2 describe-vpcs --filters Name=isDefault,Values=true \
+    --query 'Vpcs[0].VpcId' --output text)"
+  if [ "$VPC_ID" = "None" ]; then
+    echo "No subnets tagged *Public* and no default VPC found — set VPC_ID/SUBNET_IDS manually." >&2
+    exit 1
+  fi
+  SUBNET_IDS="$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC_ID" \
+    --query 'Subnets[].SubnetId' --output text | tr '\t' ',')"
+  echo "No *Public*-tagged subnets found; falling back to default VPC $VPC_ID (all subnets)."
 fi
-SUBNET_IDS="$(aws ec2 describe-subnets --filters Name=vpc-id,Values="$VPC_ID" \
-  --query 'Subnets[].SubnetId' --output text | tr '\t' ',')"
 
 echo "==> Security group locked to your current public IP"
 MY_IP="$(curl -sS https://checkip.amazonaws.com)"

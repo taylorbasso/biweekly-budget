@@ -59,7 +59,17 @@
   </div>
   <label>
     Category (optional)
-    <input type="text" name="category" value="{{ expense.category if expense else '' }}">
+    <input type="text" name="category" list="category-options"
+           value="{{ expense.category if expense else '' }}">
+    <datalist id="category-options">
+      {% for category in categories %}
+      <option value="{{ category }}">
+      {% endfor %}
+    </datalist>
+  </label>
+  <label>
+    <input type="checkbox" name="essential" {% if expense and expense.essential %}checked{% endif %}>
+    Essential (would still need to pay this if income stopped)
   </label>
   <button type="submit">Save</button>
 </form>

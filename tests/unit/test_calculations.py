@@ -1,17 +1,34 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from fractions import Fraction
 
 import pytest
 
 from budget.calculations import (
     UNCATEGORIZED,
+    account_spendable,
+    annual_cost,
+    compute_annual_cost_breakdown,
     compute_breakdown,
+    compute_credit_cards,
     compute_leftover,
+    compute_runway,
+    effective_payment,
+    essential_monthly_burn,
+    monthly_equivalent,
     occurrences_in_cycle,
+    payoff_months,
+    total_spendable,
 )
 from budget.cycles import Cycle
-from budget.models import PaySchedule, RecurringExpense, ValidationError
+from budget.models import (
+    Account,
+    CreditAccount,
+    PaySchedule,
+    RecurringExpense,
+    ValidationError,
+)
 
 
 def _expense(
@@ -22,6 +39,7 @@ def _expense(
     category: str | None = None,
     expense_id: int | None = 1,
     recurrence_anchor: date | None = None,
+    essential: bool = False,
 ) -> RecurringExpense:
     return RecurringExpense(
         id=expense_id,
@@ -31,6 +49,7 @@ def _expense(
         recurrence_value=recurrence_value,
         category=category,
         recurrence_anchor=recurrence_anchor,
+        essential=essential,
     )
 
 
@@ -307,6 +326,103 @@ def test_biweekly_without_anchor_date_raises_validation_error() -> None:
         )
 
 
+def test_annual_cost_day_of_month_expense_multiplies_by_twelve() -> None:
+    expense = _expense("Rent", 120_000, "day_of_month", 1, category="Housing")
+    assert annual_cost(expense) == 120_000 * 12
+
+
+def test_annual_cost_day_of_week_expense_multiplies_by_fifty_two() -> None:
+    expense = _expense(
+        "Investment transfer", 10_000, "day_of_week", 4, category="Investments"
+    )
+    assert annual_cost(expense) == 10_000 * 52
+
+
+def test_annual_cost_biweekly_expense_multiplies_by_twenty_six() -> None:
+    expense = _expense(
+        "Mortgage", 150_000, "biweekly", 0, recurrence_anchor=date(2026, 7, 31)
+    )
+    assert annual_cost(expense) == 150_000 * 26
+
+
+def test_annual_cost_breakdown_grand_total_sums_every_item() -> None:
+    expenses = [
+        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense(
+            "Investment transfer",
+            10_000,
+            "day_of_week",
+            4,
+            category="Investments",
+            expense_id=2,
+        ),
+        _expense("Streaming", 1_500, "day_of_month", 31, expense_id=3),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    assert breakdown.grand_total == 120_000 * 12 + 10_000 * 52 + 1_500 * 12
+
+
+def test_annual_cost_breakdown_empty_expense_list_yields_zero_total() -> None:
+    breakdown = compute_annual_cost_breakdown([])
+    assert breakdown.categories == []
+    assert breakdown.grand_total == 0
+
+
+def test_annual_cost_breakdown_groups_by_category_alphabetically() -> None:
+    expenses = [
+        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense(
+            "Investment transfer",
+            10_000,
+            "day_of_week",
+            4,
+            category="Investments",
+            expense_id=2,
+        ),
+        _expense("Streaming", 1_500, "day_of_month", 31, expense_id=3),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    assert [category.category for category in breakdown.categories] == [
+        "Housing",
+        "Investments",
+        UNCATEGORIZED,
+    ]
+
+
+def test_annual_cost_breakdown_sorts_within_category_by_annual_cost_descending() -> None:
+    expenses = [
+        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense(
+            "Renters insurance", 1_000, "day_of_month", 5, category="Housing", expense_id=2
+        ),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    housing = next(c for c in breakdown.categories if c.category == "Housing")
+    assert [item.name for item in housing.items] == ["Rent", "Renters insurance"]
+
+
+def test_annual_cost_breakdown_ties_break_by_name_ascending() -> None:
+    expenses = [
+        _expense("Zeta", 10_00, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense("Alpha", 10_00, "day_of_month", 2, category="Housing", expense_id=2),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    housing = next(c for c in breakdown.categories if c.category == "Housing")
+    assert [item.name for item in housing.items] == ["Alpha", "Zeta"]
+
+
+def test_annual_cost_breakdown_category_subtotal_sums_its_items() -> None:
+    expenses = [
+        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
+        _expense(
+            "Renters insurance", 1_000, "day_of_month", 5, category="Housing", expense_id=2
+        ),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    housing = next(c for c in breakdown.categories if c.category == "Housing")
+    assert housing.subtotal == 120_000 * 12 + 1_000 * 12
+
+
 def test_remaining_expenses_excludes_only_strictly_past_due_occurrences() -> None:
     cycle = Cycle(
         start_date=date(2026, 7, 31),
@@ -325,3 +441,171 @@ def test_remaining_expenses_excludes_only_strictly_past_due_occurrences() -> Non
     assert result.total_expenses == 60_000
     # "Due today" and "Upcoming" remain; "Past due" (July 31) is excluded.
     assert result.remaining_expenses == 50_000
+
+
+def test_monthly_equivalent_day_of_month_equals_amount() -> None:
+    expense = _expense("Rent", 200_000, "day_of_month", 1)
+    assert monthly_equivalent(expense) == Fraction(200_000)
+
+
+def test_monthly_equivalent_day_of_week_is_exact_fraction() -> None:
+    expense = _expense("Investment", 10_000, "day_of_week", 4)
+    assert monthly_equivalent(expense) == Fraction(10_000 * 52, 12)
+
+
+def test_monthly_equivalent_biweekly_is_exact_fraction() -> None:
+    expense = _expense(
+        "Storage", 150_000, "biweekly", 0, recurrence_anchor=date(2026, 1, 1)
+    )
+    assert monthly_equivalent(expense) == Fraction(150_000 * 26, 12)
+
+
+def test_essential_monthly_burn_sums_only_essential_expenses() -> None:
+    expenses = [
+        _expense("Rent", 200_000, "day_of_month", 1, expense_id=1, essential=True),
+        _expense("Streaming", 1_500, "day_of_month", 31, expense_id=2, essential=False),
+    ]
+    assert essential_monthly_burn(expenses) == Fraction(200_000)
+
+
+def test_essential_monthly_burn_is_zero_when_none_essential() -> None:
+    expenses = [_expense("Streaming", 1_500, "day_of_month", 31, essential=False)]
+    assert essential_monthly_burn(expenses) == Fraction(0)
+
+
+def test_account_spendable_full_balance_at_zero_percent() -> None:
+    account = Account(id=None, name="Cash", balance=200_000, penalty_tax_percent=0)
+    assert account_spendable(account) == Fraction(200_000)
+
+
+def test_account_spendable_applies_haircut() -> None:
+    account = Account(id=None, name="401k", balance=1_000_000, penalty_tax_percent=30)
+    assert account_spendable(account) == Fraction(700_000)
+
+
+def test_total_spendable_sums_multiple_accounts() -> None:
+    accounts = [
+        Account(id=1, name="Cash", balance=200_000, penalty_tax_percent=0),
+        Account(id=2, name="401k", balance=1_000_000, penalty_tax_percent=30),
+    ]
+    assert total_spendable(accounts) == Fraction(900_000)
+
+
+def test_total_spendable_is_zero_with_no_accounts() -> None:
+    assert total_spendable([]) == Fraction(0)
+
+
+def test_compute_runway_single_account_matches_spec_example() -> None:
+    expenses = [_expense("Rent", 200_000, "day_of_month", 1, essential=True)]
+    accounts = [Account(id=1, name="Cash", balance=706_000, penalty_tax_percent=0)]
+    result = compute_runway(expenses, accounts)
+    assert result.months == pytest.approx(3.53)
+
+
+def test_compute_runway_multiple_accounts_matches_spec_example() -> None:
+    expenses = [_expense("Rent", 200_000, "day_of_month", 1, essential=True)]
+    accounts = [
+        Account(id=1, name="Cash", balance=200_000, penalty_tax_percent=0),
+        Account(id=2, name="401k", balance=1_000_000, penalty_tax_percent=30),
+    ]
+    result = compute_runway(expenses, accounts)
+    assert result.months == pytest.approx(4.5)
+
+
+def test_compute_runway_months_none_when_no_essential_expenses() -> None:
+    expenses = [_expense("Streaming", 1_500, "day_of_month", 31, essential=False)]
+    accounts = [Account(id=1, name="Cash", balance=706_000, penalty_tax_percent=0)]
+    result = compute_runway(expenses, accounts)
+    assert result.months is None
+
+
+def test_compute_runway_months_zero_when_no_accounts() -> None:
+    expenses = [_expense("Rent", 200_000, "day_of_month", 1, essential=True)]
+    result = compute_runway(expenses, [])
+    assert result.months == 0.0
+
+
+def test_payoff_months_zero_balance_is_already_paid_off() -> None:
+    assert payoff_months(0, 20.0, 10_000) == 0
+
+
+def test_payoff_months_zero_payment_never_pays_off() -> None:
+    assert payoff_months(200_000, 20.0, 0) is None
+
+
+def test_payoff_months_payment_below_monthly_interest_never_pays_off() -> None:
+    # $1,000 balance at 24% APR accrues $20/month interest; a $10/month payment
+    # never exceeds that, so the balance never shrinks.
+    assert payoff_months(100_000, 24.0, 1_000) is None
+
+
+def test_payoff_months_zero_interest_rate_is_simple_division() -> None:
+    assert payoff_months(100_000, 0.0, 30_000) == 4  # ceil(100000/30000) == 4
+
+
+def test_payoff_months_matches_quickstart_visa_example() -> None:
+    # $2,000 balance, 20% APR, $100/month -> ~24.5 months, rounds up to 25
+    assert payoff_months(200_000, 20.0, 10_000) == 25
+
+
+def test_payoff_months_matches_quickstart_car_loan_example() -> None:
+    # $5,000 balance, 6% APR, $150/month -> ~36.6 months, rounds up to 37
+    assert payoff_months(500_000, 6.0, 15_000) == 37
+
+
+def test_effective_payment_uses_actual_when_positive() -> None:
+    account = CreditAccount(
+        id=1,
+        name="Visa",
+        balance=200_000,
+        interest_rate=20.0,
+        minimum_payment=5_000,
+        actual_payment=10_000,
+    )
+    assert effective_payment(account) == 10_000
+
+
+def test_effective_payment_falls_back_to_minimum_when_actual_unset() -> None:
+    account = CreditAccount(
+        id=1,
+        name="Car Loan",
+        balance=500_000,
+        interest_rate=6.0,
+        minimum_payment=15_000,
+        actual_payment=0,
+    )
+    assert effective_payment(account) == 15_000
+
+
+def test_compute_credit_cards_sums_columns_independently() -> None:
+    accounts = [
+        CreditAccount(
+            id=1,
+            name="Visa",
+            balance=200_000,
+            interest_rate=20.0,
+            minimum_payment=5_000,
+            actual_payment=10_000,
+        ),
+        CreditAccount(
+            id=2,
+            name="Car Loan",
+            balance=500_000,
+            interest_rate=6.0,
+            minimum_payment=15_000,
+            actual_payment=0,
+        ),
+    ]
+    rows, totals = compute_credit_cards(accounts)
+    assert [row.account.name for row in rows] == ["Visa", "Car Loan"]
+    assert totals.balance == 700_000
+    assert totals.minimum_payment == 20_000
+    assert totals.actual_payment == 10_000
+
+
+def test_compute_credit_cards_empty_list_gives_zero_totals() -> None:
+    rows, totals = compute_credit_cards([])
+    assert rows == []
+    assert totals.balance == 0
+    assert totals.minimum_payment == 0
+    assert totals.actual_payment == 0

@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import calendar
+import math
 from dataclasses import dataclass
 from datetime import date, timedelta
+from fractions import Fraction
 
 from budget.cycles import Cycle
-from budget.models import PaySchedule, RecurringExpense
+from budget.models import Account, CreditAccount, PaySchedule, RecurringExpense
 
 UNCATEGORIZED = "Uncategorized"
+
+ANNUAL_COST_MULTIPLIERS: dict[str, int] = {
+    "day_of_month": 12,
+    "day_of_week": 52,
+    "biweekly": 26,
+}
 
 
 @dataclass(frozen=True)
@@ -34,6 +42,26 @@ class CategoryBreakdown:
     cycle: Cycle
     totals: list[tuple[str, int]]
     items: dict[str, list[tuple[str, int]]]
+
+
+@dataclass(frozen=True)
+class AnnualCostItem:
+    expense_id: int | None
+    name: str
+    annual_cost: int
+
+
+@dataclass(frozen=True)
+class CategoryAnnualCost:
+    category: str
+    items: list[AnnualCostItem]
+    subtotal: int
+
+
+@dataclass(frozen=True)
+class AnnualCostBreakdown:
+    categories: list[CategoryAnnualCost]
+    grand_total: int
 
 
 def _months_spanning(start: date, end: date) -> list[tuple[int, int]]:
@@ -160,3 +188,124 @@ def compute_breakdown(
         totals=list(totals.items()),
         items={category: sorted(names.items()) for category, names in items.items()},
     )
+
+
+def annual_cost(expense: RecurringExpense) -> int:
+    return expense.amount * ANNUAL_COST_MULTIPLIERS[expense.recurrence_type]
+
+
+@dataclass(frozen=True)
+class RunwayResult:
+    monthly_essential_burn: Fraction
+    total_spendable: Fraction
+    months: float | None
+
+
+def monthly_equivalent(expense: RecurringExpense) -> Fraction:
+    return Fraction(annual_cost(expense), 12)
+
+
+def essential_monthly_burn(expenses: list[RecurringExpense]) -> Fraction:
+    return sum(
+        (monthly_equivalent(expense) for expense in expenses if expense.essential),
+        Fraction(0),
+    )
+
+
+def account_spendable(account: Account) -> Fraction:
+    return Fraction(account.balance * (100 - account.penalty_tax_percent), 100)
+
+
+def total_spendable(accounts: list[Account]) -> Fraction:
+    return sum((account_spendable(account) for account in accounts), Fraction(0))
+
+
+def compute_runway(
+    expenses: list[RecurringExpense], accounts: list[Account]
+) -> RunwayResult:
+    burn = essential_monthly_burn(expenses)
+    spendable = total_spendable(accounts)
+    months = float(spendable / burn) if burn > 0 else None
+    return RunwayResult(
+        monthly_essential_burn=burn, total_spendable=spendable, months=months
+    )
+
+
+def compute_annual_cost_breakdown(
+    expenses: list[RecurringExpense],
+) -> AnnualCostBreakdown:
+    by_category: dict[str, list[AnnualCostItem]] = {}
+    for expense in expenses:
+        category = expense.category or UNCATEGORIZED
+        by_category.setdefault(category, []).append(
+            AnnualCostItem(
+                expense_id=expense.id,
+                name=expense.name,
+                annual_cost=annual_cost(expense),
+            )
+        )
+
+    categories = []
+    for category in sorted(by_category):
+        items = sorted(
+            by_category[category], key=lambda item: (-item.annual_cost, item.name)
+        )
+        subtotal = sum(item.annual_cost for item in items)
+        categories.append(
+            CategoryAnnualCost(category=category, items=items, subtotal=subtotal)
+        )
+
+    grand_total = sum(category.subtotal for category in categories)
+    return AnnualCostBreakdown(categories=categories, grand_total=grand_total)
+
+
+def payoff_months(balance: int, interest_rate: float, payment: int) -> int | None:
+    if balance <= 0:
+        return 0
+    if payment <= 0:
+        return None
+    monthly_rate = interest_rate / 100 / 12
+    if monthly_rate == 0:
+        return math.ceil(balance / payment)
+    monthly_interest = balance * monthly_rate
+    if payment <= monthly_interest:
+        return None
+    n = -math.log(1 - monthly_rate * balance / payment) / math.log(1 + monthly_rate)
+    return math.ceil(n)
+
+
+def effective_payment(account: CreditAccount) -> int:
+    return account.actual_payment if account.actual_payment > 0 else account.minimum_payment
+
+
+@dataclass(frozen=True)
+class CreditAccountRow:
+    account: CreditAccount
+    payoff_months: int | None
+
+
+@dataclass(frozen=True)
+class CreditCardsTotals:
+    balance: int
+    minimum_payment: int
+    actual_payment: int
+
+
+def compute_credit_cards(
+    accounts: list[CreditAccount],
+) -> tuple[list[CreditAccountRow], CreditCardsTotals]:
+    rows = [
+        CreditAccountRow(
+            account=account,
+            payoff_months=payoff_months(
+                account.balance, account.interest_rate, effective_payment(account)
+            ),
+        )
+        for account in accounts
+    ]
+    totals = CreditCardsTotals(
+        balance=sum((account.balance for account in accounts), 0),
+        minimum_payment=sum((account.minimum_payment for account in accounts), 0),
+        actual_payment=sum((account.actual_payment for account in accounts), 0),
+    )
+    return rows, totals

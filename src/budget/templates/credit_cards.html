@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+{% block title %}Credit Cards — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Credit Cards</h1>
+<p>Track credit card and loan balances, payments, and estimated payoff time. Works for
+loans too, not just credit cards.</p>
+
+<p><a href="/credit-cards/new">Add credit card / loan</a></p>
+
+{% if rows %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Balance</th>
+      <th>Interest Rate</th>
+      <th>Minimum Payment</th>
+      <th>Actual Payment</th>
+      <th>Payoff Time</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.account.name }}</td>
+      <td>${{ row.account.balance | usd }}</td>
+      <td>{{ row.account.interest_rate }}%</td>
+      <td>${{ row.account.minimum_payment | usd }}</td>
+      <td>${{ row.account.actual_payment | usd }}</td>
+      <td>{{ row.payoff_months | payoff }}</td>
+      <td class="expense-actions">
+        <a class="btn-edit" href="/credit-cards/{{ row.account.id }}/edit">Edit</a>
+        <form method="post" action="/credit-cards/{{ row.account.id }}/delete">
+          <button type="submit" onclick="return confirm('Delete this entry?')">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th>Totals</th>
+      <th>${{ totals.balance | usd }}</th>
+      <th></th>
+      <th>${{ totals.minimum_payment | usd }}</th>
+      <th>${{ totals.actual_payment | usd }}</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p>No credit cards or loans recorded yet.</p>
+{% endif %}
+{% endblock %}

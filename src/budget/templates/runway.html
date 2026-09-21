@@ -1,0 +1,95 @@
+{% extends "layout.html" %}
+{% block title %}Runway — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>Runway</h1>
+<p>Mark expenses "Essential" on the <a href="/expenses">Expenses</a> page, then add your
+accounts here to see how many months your money would cover just the essentials.</p>
+
+<h2>Essential Expenses</h2>
+{% if essential_rows %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Amount</th>
+      <th>Frequency</th>
+      <th>Monthly Equivalent</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for expense, monthly_cents in essential_rows %}
+    <tr>
+      <td>{{ expense.name }}</td>
+      <td>${{ expense.amount | usd }}</td>
+      <td>
+        {% if expense.recurrence_type == "day_of_month" %}
+          Monthly (day {{ expense.recurrence_value }})
+        {% elif expense.recurrence_type == "day_of_week" %}
+          Weekly ({{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][expense.recurrence_value] }})
+        {% else %}
+          Every 2 weeks
+        {% endif %}
+      </td>
+      <td>${{ monthly_cents | usd }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th colspan="3">Total (monthly)</th>
+      <th>${{ total_monthly_burn | usd }}</th>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p>No expenses marked essential yet — mark some on the <a href="/expenses">Expenses</a> page.</p>
+{% endif %}
+
+<h2>Accounts</h2>
+<p><a href="/runway/accounts/new">Add account</a></p>
+{% if accounts %}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Balance</th>
+      <th>Penalty/Tax %</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for account in accounts %}
+    <tr>
+      <td>{{ account.name }}</td>
+      <td>${{ account.balance | usd }}</td>
+      <td>{{ account.penalty_tax_percent }}%</td>
+      <td class="expense-actions">
+        <a class="btn-edit" href="/runway/accounts/{{ account.id }}/edit">Edit</a>
+        <form method="post" action="/runway/accounts/{{ account.id }}/delete">
+          <button type="submit">Remove</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <th>Total</th>
+      <th>${{ total_account_balance | usd }}</th>
+      <th></th>
+      <th></th>
+    </tr>
+  </tfoot>
+</table>
+{% else %}
+<p>No accounts recorded.</p>
+{% endif %}
+
+<h2>Result</h2>
+{% if result.months is none %}
+<p>No essential expenses selected — mark at least one expense essential on the
+<a href="/expenses">Expenses</a> page to see a runway.</p>
+{% else %}
+<p><strong>{{ "%.2f"|format(result.months) }} months</strong></p>
+{% endif %}
+{% endblock %}

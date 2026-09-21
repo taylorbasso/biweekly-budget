@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}{{ "Edit" if account else "Add" }} Account — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>{{ "Edit" if account else "Add" }} Account</h1>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  <label>
+    Name
+    <input type="text" name="name" value="{{ account.name if account else '' }}" required>
+  </label>
+  <label>
+    Balance (dollars)
+    <input type="number" step="0.01" min="0" name="balance"
+           value="{{ '%.2f'|format(account.balance / 100) if account else '' }}" required>
+  </label>
+  <label>
+    Penalty/Tax % (optional, 0-100)
+    <input type="number" min="0" max="100" name="penalty_tax_percent"
+           value="{{ account.penalty_tax_percent if account else 0 }}">
+  </label>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}

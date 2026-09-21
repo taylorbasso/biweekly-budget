@@ -17,10 +17,10 @@
     </select>
     <noscript><button type="submit">Go</button></noscript>
   </form>
-  <p>Pay amount: ${{ "%.2f"|format(result.pay_amount / 100) }}</p>
-  <p>Total expenses this pay period: ${{ "%.2f"|format(result.total_expenses / 100) }}</p>
-  <p>Remaining expenses this pay period: ${{ "%.2f"|format(result.remaining_expenses / 100) }}</p>
-  <p><strong>Leftover: ${{ "%.2f"|format(result.leftover_amount / 100) }}</strong></p>
+  <p>Pay amount: ${{ result.pay_amount | usd }}</p>
+  <p>Total expenses this pay period: ${{ result.total_expenses | usd }}</p>
+  <p>Remaining expenses this pay period: ${{ result.remaining_expenses | usd }}</p>
+  <p><strong>Leftover: ${{ result.leftover_amount | usd }}</strong></p>
 
   {% if chart.slices %}
     <div class="chart-container">
@@ -28,12 +28,12 @@
         {% for slice in chart.slices %}
           {% if slice.is_full_circle %}
             <circle cx="100" cy="100" r="90" fill="{{ slice.color }}"
-                    data-label="{{ slice.label }}" data-amount="{{ '%.2f'|format(slice.amount / 100) }}"
+                    data-label="{{ slice.label }}" data-amount="{{ slice.amount | usd }}"
                     data-items='{{ category_items.get(slice.label, []) | tojson }}'>
             </circle>
           {% else %}
             <path d="{{ slice.path_d }}" fill="{{ slice.color }}"
-                  data-label="{{ slice.label }}" data-amount="{{ '%.2f'|format(slice.amount / 100) }}"
+                  data-label="{{ slice.label }}" data-amount="{{ slice.amount | usd }}"
                   data-items='{{ category_items.get(slice.label, []) | tojson }}'>
             </path>
           {% endif %}
@@ -41,7 +41,7 @@
       </svg>
       <ul class="chart-legend">
         {% for slice in chart.slices %}
-          <li><span class="legend-swatch" style="background-color: {{ slice.color }}"></span>{{ slice.label }} — ${{ "%.2f"|format(slice.amount / 100) }}</li>
+          <li><span class="legend-swatch" style="background-color: {{ slice.color }}"></span>{{ slice.label }} — ${{ slice.amount | usd }}</li>
         {% endfor %}
       </ul>
     </div>
@@ -66,7 +66,7 @@
             items.forEach(function (item) {
               var line = document.createElement("div");
               line.className = "chart-tooltip-item";
-              line.textContent = item[0] + ": $" + (item[1] / 100).toFixed(2);
+              line.textContent = item[0] + ": $" + (item[1] / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
               tooltip.appendChild(line);
             });
             tooltip.style.left = event.clientX + 14 + "px";
@@ -80,7 +80,7 @@
       })();
     </script>
     {% if chart.overspent %}
-      <p class="overspent-notice">Overspent this cycle by ${{ "%.2f"|format(chart.overspent_amount / 100) }} — no leftover to show.</p>
+      <p class="overspent-notice">Overspent this cycle by ${{ chart.overspent_amount | usd }} — no leftover to show.</p>
     {% endif %}
   {% endif %}
 
@@ -90,7 +90,7 @@
       {% for occurrence in result.occurrences %}
         <li class="{{ 'expense-past-due' if occurrence.due_date < today else '' }}">
           {{ occurrence.due_date.isoformat() }} — {{ occurrence.name }}
-          (${{ "%.2f"|format(occurrence.amount / 100) }}, {{ occurrence.category }})
+          (${{ occurrence.amount | usd }}, {{ occurrence.category }})
         </li>
       {% endfor %}
     </ul>

@@ -29,6 +29,7 @@ class RecurringExpense:
     recurrence_value: int
     category: str | None = None
     recurrence_anchor: date | None = None  # required when recurrence_type == "biweekly"
+    essential: bool = False
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -49,3 +50,41 @@ class RecurringExpense:
             raise ValidationError("day_of_week recurrence_value must be in 0..6")
         if self.recurrence_type == "biweekly" and self.recurrence_anchor is None:
             raise ValidationError("biweekly recurrence requires an anchor date")
+
+
+@dataclass(frozen=True)
+class Account:
+    id: int | None
+    name: str
+    balance: int  # integer cents
+    penalty_tax_percent: int = 0  # 0..100, portion lost to early-withdrawal/tax
+
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValidationError("name must not be empty")
+        if self.balance < 0:
+            raise ValidationError("balance must not be negative")
+        if not (0 <= self.penalty_tax_percent <= 100):
+            raise ValidationError("penalty_tax_percent must be in 0..100")
+
+
+@dataclass(frozen=True)
+class CreditAccount:
+    id: int | None
+    name: str
+    balance: int  # integer cents
+    interest_rate: float = 0  # annual percentage, e.g. 24.99 means 24.99% APR
+    minimum_payment: int = 0  # integer cents
+    actual_payment: int = 0  # integer cents; 0 means "not set" (falls back to minimum)
+
+    def __post_init__(self) -> None:
+        if not self.name.strip():
+            raise ValidationError("name must not be empty")
+        if self.balance < 0:
+            raise ValidationError("balance must not be negative")
+        if self.interest_rate < 0:
+            raise ValidationError("interest_rate must not be negative")
+        if self.minimum_payment < 0:
+            raise ValidationError("minimum_payment must not be negative")
+        if self.actual_payment < 0:
+            raise ValidationError("actual_payment must not be negative")

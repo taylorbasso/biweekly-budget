@@ -9,7 +9,7 @@
 
 {% if pay_schedule %}
   <p>Current anchor date: {{ pay_schedule.anchor_date.isoformat() }}</p>
-  <p>Current amount: ${{ "%.2f"|format(pay_schedule.amount / 100) }}</p>
+  <p>Current amount: ${{ pay_schedule.amount | usd }}</p>
 {% endif %}
 
 <form method="post" action="/pay-schedule">

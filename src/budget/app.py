@@ -24,11 +24,26 @@ def create_app(db_path: str | Path | None = None) -> Flask:
 
     app.teardown_appcontext(_close_db)
 
+    app.jinja_env.filters["usd"] = _format_cents_as_usd
+    app.jinja_env.filters["payoff"] = _format_payoff_months
+
     from budget.routes import bp
 
     app.register_blueprint(bp)
 
     return app
+
+
+def _format_cents_as_usd(cents: int) -> str:
+    return f"{cents / 100:,.2f}"
+
+
+def _format_payoff_months(months: int | None) -> str:
+    if months is None:
+        return "Never at this rate"
+    if months == 0:
+        return "Paid off"
+    return f"{months} months"
 
 
 def get_db() -> sqlite3.Connection:
