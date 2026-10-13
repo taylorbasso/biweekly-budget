@@ -10,6 +10,9 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.0",
     "gunicorn>=22.0",
+    "flask-login>=0.6.3",
+    "flask-wtf>=1.2",
+    "flask-limiter>=3.5",
 ]
 
 [project.optional-dependencies]
@@ -34,3 +37,13 @@ strict = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Flask-Login and Flask-WTF ship no type stubs; `deprecated` (pulled in by Flask-Limiter)
+# uses Python 3.12 syntax that mypy rejects under python_version = "3.11".
+[[tool.mypy.overrides]]
+module = ["flask_login", "flask_wtf", "flask_wtf.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["deprecated", "deprecated.*"]
+follow_imports = "skip"

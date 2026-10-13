@@ -40,6 +40,8 @@ Full behavior, edge cases, and a worked example live in
 - [Flask](https://flask.palletsprojects.com/) — server-rendered pages, no separate
   frontend build
 - SQLite via the standard library `sqlite3` module — no ORM
+- Flask-Login, Flask-WTF (CSRF), and Flask-Limiter for sign-in, form protection, and rate
+  limiting; Werkzeug scrypt for password hashes
 - `pytest` for tests, `mypy` for static type checking
 
 See `specs/001-pay-cycle-leftover/research.md` for why these were chosen over the
@@ -53,8 +55,19 @@ pip install -e .
 flask --app src.budget.app run
 ```
 
-The app binds to `127.0.0.1` only by design — see Constitution Principle IV — and is
-never exposed on the network by default.
+The dev server binds to `127.0.0.1` by default — see Constitution Principle IV. A public
+deployment is allowed only behind HTTPS with sign-in required on every page (Principles IV
+and VI).
+
+Every page requires sign-in. Create an account at `/register`; each account has its own
+data. For production set `BUDGET_SECRET_KEY` (required) and, behind a load balancer,
+`BUDGET_TRUST_PROXY=1`; local development uses `BUDGET_ENV=development`
+(`./scripts/dev-server.sh` sets it). Budget data created before accounts existed can be
+attached to an account with:
+
+```bash
+flask --app src.budget.app claim-legacy --email you@example.com
+```
 
 Run tests and type checks with:
 
@@ -76,6 +89,7 @@ tests/                # Unit + integration tests (once implemented)
 
 Development is governed by `.specify/memory/constitution.md`: simplicity first (no
 premature interfaces or dependencies), a clean split between core budget logic and the
-Flask layer, mandatory type checking, local-first data privacy (SQLite only, localhost
-only, no telemetry), and non-negotiable test coverage for the pay-cycle and
+Flask layer, mandatory type checking, data privacy (SQLite only, no telemetry, HTTPS-only
+public deployment, salted-hash credentials), mandatory authentication with strict
+per-account data isolation, and non-negotiable test coverage for the pay-cycle and
 leftover-calculation math.

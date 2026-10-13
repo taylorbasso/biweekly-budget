@@ -1,8 +1,9 @@
 # biweekly-budget
 
 Personal budgeting tool: computes how much discretionary money is left in the current
-biweekly pay cycle, plus a per-category spending breakdown for that cycle. Single user,
-local-only, Flask web app backed by SQLite.
+biweekly pay cycle, plus a per-category spending breakdown for that cycle. Flask web app
+backed by SQLite, deployed publicly at https://budget.taylorbasso.dev; multiple accounts
+with strictly separate data (see feature `006-login-authentication`).
 
 ## Status
 
@@ -16,13 +17,22 @@ for current progress before assuming any module exists.
 
 - **Simplicity first**: single Flask app + SQLite. No ORM, no frontend build tooling, no
   additional interface, until a concrete need exists.
+- **Hobby app, KISS**: this is not a production service. Use the standard, widely used
+  Flask solution (Flask-Login, Flask-WTF, Flask-Limiter, Werkzeug password hashing) rather
+  than building custom machinery, and don't invent requirements the feature doesn't need.
+  Bumping container memory/size is fine if it avoids complexity.
 - **Library-oriented design**: pay-cycle/leftover/category-breakdown logic lives in plain
   Python modules independent of Flask; routes are thin wrappers (parse input, call the
   module, render a template). No business logic in routes or templates.
 - **Type safety**: type hints on all public functions and data models; `mypy` must pass
   clean before a change is done.
-- **Local-first privacy**: SQLite only, no network calls, no telemetry, dev server bound
-  to `127.0.0.1` only — never exposed on the network by default.
+- **Data privacy**: SQLite only, no telemetry, no outbound email, no data sent to third
+  parties. Dev server binds to `127.0.0.1` by default; public deployment only behind
+  HTTPS with login required on every page. Passwords only as salted slow one-way hashes.
+- **Authentication & data isolation**: every route requires login unless explicitly
+  exempted; every query is scoped to the signed-in account; CSRF protection on all forms;
+  secure session cookies; rate-limited login/registration; and an automated test proving
+  one account cannot read or change another's data on every route touching budget data.
 - **Correctness of financial math (non-negotiable)**: any code touching cycle boundaries,
   expense-to-cycle matching, or leftover/breakdown totals needs automated tests covering
   boundary conditions (cycle start/end, day-of-month clamping, leap years, month
@@ -30,6 +40,7 @@ for current progress before assuming any module exists.
 
 ## Where things are
 
+- `specs/006-login-authentication/` — spec, plan, tasks for sign-in, registration, and per-account data
 - `specs/001-pay-cycle-leftover/spec.md` — feature spec, user stories, functional requirements
 - `specs/001-pay-cycle-leftover/plan.md` — tech stack, architecture, Constitution Check
 - `specs/001-pay-cycle-leftover/data-model.md` — entities (PaySchedule, RecurringExpense, computed Cycle/LeftoverResult/CategoryBreakdown)
@@ -59,6 +70,27 @@ tests/
 ./scripts/check.sh      # pytest tests/ + mypy src/ — must both pass clean
 ./scripts/dev-server.sh {start|stop|restart|status}   # local dev server, binds 127.0.0.1 only
 ```
+
+### Sign-in and accounts
+
+Every page requires sign-in (Flask-Login); registration is public at `/register` and each
+account has its own data. Config via environment variables:
+
+- `BUDGET_ENV` — `production` (default) or `development` (`dev-server.sh` sets it: HTTP
+  cookies, fixed dev secret key).
+- `BUDGET_SECRET_KEY` — session/CSRF signing key; **required in production**, the app
+  refuses to start without it.
+- `BUDGET_TRUST_PROXY=1` — trust one proxy hop (the ALB) for client IP and HTTPS scheme.
+
+Data created before login existed is unowned and invisible until an operator assigns it:
+
+```bash
+source .venv/bin/activate && flask --app src.budget.app claim-legacy --email you@example.com
+```
+
+New routes go in the `budget` blueprint (`routes.py`), which requires login by default;
+every `db.py` function takes `user_id` and filters on it. Add an isolation test
+(`tests/integration/test_isolation.py`) for any new kind of record.
 
 Templates auto-reload on every request (`TEMPLATES_AUTO_RELOAD = True` is set in
 `create_app()`), so template/Jinja edits show up on the next browser refresh with no

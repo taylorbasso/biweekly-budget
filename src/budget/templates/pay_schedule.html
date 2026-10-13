@@ -13,6 +13,7 @@
 {% endif %}
 
 <form method="post" action="/pay-schedule">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Anchor date
     <input type="date" name="anchor_date"

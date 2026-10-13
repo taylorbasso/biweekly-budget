@@ -66,6 +66,7 @@ accounts here to see how many months your money would cover just the essentials.
       <td class="expense-actions">
         <a class="btn-edit" href="/runway/accounts/{{ account.id }}/edit">Edit</a>
         <form method="post" action="/runway/accounts/{{ account.id }}/delete">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit">Remove</button>
         </form>
       </td>

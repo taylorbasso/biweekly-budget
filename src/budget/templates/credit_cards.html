@@ -36,6 +36,7 @@ loans too, not just credit cards.</p>
       <td class="expense-actions">
         <a class="btn-edit" href="/credit-cards/{{ row.account.id }}/edit">Edit</a>
         <form method="post" action="/credit-cards/{{ row.account.id }}/delete">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" onclick="return confirm('Delete this entry?')">Remove</button>
         </form>
       </td>

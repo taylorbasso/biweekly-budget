@@ -8,6 +8,7 @@
 {% endif %}
 
 <form method="post" action="{{ action }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Name
     <input type="text" name="name" value="{{ expense.name if expense else '' }}" required>

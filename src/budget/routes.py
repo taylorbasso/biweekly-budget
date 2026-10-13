@@ -6,9 +6,11 @@ from datetime import date
 
 from flask import Blueprint, abort, redirect, render_template, request, url_for
 from flask.typing import ResponseReturnValue
+from flask_login import current_user
 
 from budget import db
 from budget.app import get_db
+from budget.auth import login_manager
 from budget.calculations import (
     UNCATEGORIZED,
     compute_annual_cost_breakdown,
@@ -31,6 +33,19 @@ from budget.models import (
 
 bp = Blueprint("budget", __name__)
 
+
+@bp.before_request
+def _require_login() -> ResponseReturnValue | None:
+    """Every route in this blueprint requires a signed-in account (Principle VI)."""
+    if not current_user.is_authenticated:
+        return login_manager.unauthorized()  # type: ignore[no-any-return]
+    return None
+
+
+def _user_id() -> int:
+    return int(current_user.id)
+
+
 CYCLE_OPTIONS_COUNT = 10
 
 RECURRENCE_TYPE_ORDER: tuple[str, ...] = ("day_of_month", "day_of_week", "biweekly")
@@ -43,7 +58,7 @@ RECURRENCE_TYPE_LABELS: dict[str, str] = {
 
 def _existing_categories(conn: sqlite3.Connection) -> list[str]:
     categories = {
-        expense.category for expense in db.list_expenses(conn) if expense.category
+        expense.category for expense in db.list_expenses(conn, _user_id()) if expense.category
     }
     return sorted(categories)
 
@@ -90,7 +105,7 @@ def _expense_from_form(expense_id: int | None) -> RecurringExpense:
 @bp.route("/")
 def leftover() -> str:
     conn = get_db()
-    pay_schedule = db.get_pay_schedule(conn)
+    pay_schedule = db.get_pay_schedule(conn, _user_id())
     if pay_schedule is None:
         return render_template("leftover.html", pay_schedule=None, result=None)
 
@@ -98,7 +113,7 @@ def leftover() -> str:
     cycle = resolve_cycle(pay_schedule, reference_date)
     current_cycle = resolve_cycle(pay_schedule, date.today())
     cycle_options = upcoming_cycles(current_cycle, CYCLE_OPTIONS_COUNT)
-    expenses = db.list_expenses(conn)
+    expenses = db.list_expenses(conn, _user_id())
     occurrences = occurrences_in_cycle(expenses, cycle)
     result = compute_leftover(pay_schedule, occurrences, cycle, reference_date)
     breakdown = compute_breakdown(cycle, occurrences)
@@ -120,7 +135,7 @@ def pay_schedule() -> ResponseReturnValue:
     conn = get_db()
     if request.method == "GET":
         return render_template(
-            "pay_schedule.html", pay_schedule=db.get_pay_schedule(conn), error=None
+            "pay_schedule.html", pay_schedule=db.get_pay_schedule(conn, _user_id()), error=None
         )
 
     try:
@@ -133,7 +148,7 @@ def pay_schedule() -> ResponseReturnValue:
             400,
         )
 
-    db.set_pay_schedule(conn, schedule)
+    db.set_pay_schedule(conn, _user_id(), schedule)
     return redirect(url_for("budget.pay_schedule"))
 
 
@@ -156,7 +171,7 @@ def _group_by_category(
 @bp.route("/expenses")
 def expenses_list() -> str:
     conn = get_db()
-    expenses = db.list_expenses(conn)
+    expenses = db.list_expenses(conn, _user_id())
     sections: list[tuple[str, list[tuple[str, list[RecurringExpense]]]]] = []
     for recurrence_type in RECURRENCE_TYPE_ORDER:
         groups = _group_by_category(
@@ -172,7 +187,7 @@ def expenses_list() -> str:
 @bp.route("/annual-cost")
 def annual_cost() -> str:
     conn = get_db()
-    expenses = db.list_expenses(conn)
+    expenses = db.list_expenses(conn, _user_id())
     breakdown = compute_annual_cost_breakdown(expenses)
     return render_template("annual_cost.html", breakdown=breakdown)
 
@@ -193,8 +208,8 @@ def _account_from_form(account_id: int | None) -> Account:
 @bp.route("/runway")
 def runway() -> str:
     conn = get_db()
-    expenses = db.list_expenses(conn)
-    accounts = db.list_accounts(conn)
+    expenses = db.list_expenses(conn, _user_id())
+    accounts = db.list_accounts(conn, _user_id())
     result = compute_runway(expenses, accounts)
     essential_rows = [
         (expense, round(monthly_equivalent(expense)))
@@ -216,7 +231,7 @@ def runway() -> str:
 @bp.route("/expenses/<int:expense_id>/toggle-essential", methods=["POST"])
 def toggle_essential(expense_id: int) -> ResponseReturnValue:
     conn = get_db()
-    expense = db.get_expense(conn, expense_id)
+    expense = db.get_expense(conn, _user_id(), expense_id)
     if expense is None:
         abort(404)
     updated = RecurringExpense(
@@ -229,7 +244,7 @@ def toggle_essential(expense_id: int) -> ResponseReturnValue:
         recurrence_anchor=expense.recurrence_anchor,
         essential=not expense.essential,
     )
-    db.update_expense(conn, expense_id, updated)
+    db.update_expense(conn, _user_id(), expense_id, updated)
     return redirect(url_for("budget.expenses_list"))
 
 
@@ -255,14 +270,14 @@ def account_create() -> ResponseReturnValue:
             400,
         )
     conn = get_db()
-    db.create_account(conn, account)
+    db.create_account(conn, _user_id(), account)
     return redirect(url_for("budget.runway"))
 
 
 @bp.route("/runway/accounts/<int:account_id>/edit", methods=["GET"])
 def account_edit(account_id: int) -> str:
     conn = get_db()
-    account = db.get_account(conn, account_id)
+    account = db.get_account(conn, _user_id(), account_id)
     if account is None:
         abort(404)
     return render_template(
@@ -276,7 +291,7 @@ def account_edit(account_id: int) -> str:
 @bp.route("/runway/accounts/<int:account_id>/edit", methods=["POST"])
 def account_update(account_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_account(conn, account_id) is None:
+    if db.get_account(conn, _user_id(), account_id) is None:
         abort(404)
     try:
         account = _account_from_form(account_id)
@@ -290,16 +305,16 @@ def account_update(account_id: int) -> ResponseReturnValue:
             ),
             400,
         )
-    db.update_account(conn, account_id, account)
+    db.update_account(conn, _user_id(), account_id, account)
     return redirect(url_for("budget.runway"))
 
 
 @bp.route("/runway/accounts/<int:account_id>/delete", methods=["POST"])
 def account_delete(account_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_account(conn, account_id) is None:
+    if db.get_account(conn, _user_id(), account_id) is None:
         abort(404)
-    db.delete_account(conn, account_id)
+    db.delete_account(conn, _user_id(), account_id)
     return redirect(url_for("budget.runway"))
 
 
@@ -327,7 +342,7 @@ def _credit_account_from_form(credit_account_id: int | None) -> CreditAccount:
 @bp.route("/credit-cards")
 def credit_cards() -> str:
     conn = get_db()
-    accounts = db.list_credit_accounts(conn)
+    accounts = db.list_credit_accounts(conn, _user_id())
     rows, totals = compute_credit_cards(accounts)
     return render_template("credit_cards.html", rows=rows, totals=totals)
 
@@ -354,14 +369,14 @@ def credit_account_create() -> ResponseReturnValue:
             400,
         )
     conn = get_db()
-    db.create_credit_account(conn, account)
+    db.create_credit_account(conn, _user_id(), account)
     return redirect(url_for("budget.credit_cards"))
 
 
 @bp.route("/credit-cards/<int:credit_account_id>/edit", methods=["GET"])
 def credit_account_edit(credit_account_id: int) -> str:
     conn = get_db()
-    account = db.get_credit_account(conn, credit_account_id)
+    account = db.get_credit_account(conn, _user_id(), credit_account_id)
     if account is None:
         abort(404)
     return render_template(
@@ -375,7 +390,7 @@ def credit_account_edit(credit_account_id: int) -> str:
 @bp.route("/credit-cards/<int:credit_account_id>/edit", methods=["POST"])
 def credit_account_update(credit_account_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_credit_account(conn, credit_account_id) is None:
+    if db.get_credit_account(conn, _user_id(), credit_account_id) is None:
         abort(404)
     try:
         account = _credit_account_from_form(credit_account_id)
@@ -389,16 +404,16 @@ def credit_account_update(credit_account_id: int) -> ResponseReturnValue:
             ),
             400,
         )
-    db.update_credit_account(conn, credit_account_id, account)
+    db.update_credit_account(conn, _user_id(), credit_account_id, account)
     return redirect(url_for("budget.credit_cards"))
 
 
 @bp.route("/credit-cards/<int:credit_account_id>/delete", methods=["POST"])
 def credit_account_delete(credit_account_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_credit_account(conn, credit_account_id) is None:
+    if db.get_credit_account(conn, _user_id(), credit_account_id) is None:
         abort(404)
-    db.delete_credit_account(conn, credit_account_id)
+    db.delete_credit_account(conn, _user_id(), credit_account_id)
     return redirect(url_for("budget.credit_cards"))
 
 
@@ -430,14 +445,14 @@ def expense_create() -> ResponseReturnValue:
             ),
             400,
         )
-    db.create_expense(conn, expense)
+    db.create_expense(conn, _user_id(), expense)
     return redirect(url_for("budget.expenses_list"))
 
 
 @bp.route("/expenses/<int:expense_id>/edit", methods=["GET"])
 def expense_edit(expense_id: int) -> str:
     conn = get_db()
-    expense = db.get_expense(conn, expense_id)
+    expense = db.get_expense(conn, _user_id(), expense_id)
     if expense is None:
         abort(404)
     return render_template(
@@ -452,7 +467,7 @@ def expense_edit(expense_id: int) -> str:
 @bp.route("/expenses/<int:expense_id>/edit", methods=["POST"])
 def expense_update(expense_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_expense(conn, expense_id) is None:
+    if db.get_expense(conn, _user_id(), expense_id) is None:
         abort(404)
     try:
         expense = _expense_from_form(expense_id)
@@ -467,14 +482,14 @@ def expense_update(expense_id: int) -> ResponseReturnValue:
             ),
             400,
         )
-    db.update_expense(conn, expense_id, expense)
+    db.update_expense(conn, _user_id(), expense_id, expense)
     return redirect(url_for("budget.expenses_list"))
 
 
 @bp.route("/expenses/<int:expense_id>/delete", methods=["POST"])
 def expense_delete(expense_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_expense(conn, expense_id) is None:
+    if db.get_expense(conn, _user_id(), expense_id) is None:
         abort(404)
-    db.delete_expense(conn, expense_id)
+    db.delete_expense(conn, _user_id(), expense_id)
     return redirect(url_for("budget.expenses_list"))

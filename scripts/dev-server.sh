@@ -26,6 +26,7 @@ start() {
     return 0
   fi
   source .venv/bin/activate
+  export BUDGET_ENV=development
   nohup flask --app src.budget.app run --port "$PORT" > "$LOG_FILE" 2>&1 &
   disown
   sleep 1

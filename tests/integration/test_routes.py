@@ -2,17 +2,36 @@ from __future__ import annotations
 
 from datetime import date
 
+import pytest
+from flask import Flask
 from flask.testing import FlaskClient
 
 from budget import db
 from budget.app import get_db
 from budget.models import Account, CreditAccount, PaySchedule, RecurringExpense
+from tests.conftest import TEST_EMAIL, login
+
+
+def _owner_id(app: Flask) -> int:
+    """Id of the signed-in test account that owns everything these tests seed."""
+    with app.app_context():
+        found = db.get_user_with_hash(get_db(), TEST_EMAIL)
+    assert found is not None
+    return found[0].id
+
+
+@pytest.fixture
+def client(app: Flask, user_id: int) -> FlaskClient:
+    """Shadows the anonymous conftest client: signed in as the owner account."""
+    signed_in = app.test_client()
+    login(signed_in)
+    return signed_in
 
 
 def _seed_pay_schedule(app, anchor_date: date, amount: int) -> None:
     with app.app_context():
         conn = get_db()
-        db.set_pay_schedule(conn, PaySchedule(anchor_date=anchor_date, amount=amount))
+        db.set_pay_schedule(conn, _owner_id(app), PaySchedule(anchor_date=anchor_date, amount=amount))
 
 
 def _seed_expense(
@@ -28,6 +47,7 @@ def _seed_expense(
         conn = get_db()
         return db.create_expense(
             conn,
+            _owner_id(app),
             RecurringExpense(
                 id=None,
                 name=name,
@@ -47,6 +67,7 @@ def _seed_account(
         conn = get_db()
         return db.create_account(
             conn,
+            _owner_id(app),
             Account(
                 id=None,
                 name=name,
@@ -69,6 +90,7 @@ def _seed_credit_account(
         conn = get_db()
         return db.create_credit_account(
             conn,
+            _owner_id(app),
             CreditAccount(
                 id=None,
                 name=name,
@@ -170,12 +192,12 @@ def test_toggle_essential_persists_and_redirects(app, client: FlaskClient) -> No
 
     with app.app_context():
         conn = get_db()
-        assert db.get_expense(conn, expense_id).essential is True
+        assert db.get_expense(conn, _owner_id(app), expense_id).essential is True
 
     client.post(f"/expenses/{expense_id}/toggle-essential")
     with app.app_context():
         conn = get_db()
-        assert db.get_expense(conn, expense_id).essential is False
+        assert db.get_expense(conn, _owner_id(app), expense_id).essential is False
 
 
 def test_toggle_essential_unknown_expense_404s(app, client: FlaskClient) -> None:
@@ -256,7 +278,7 @@ def test_account_edit_prefills_and_updates(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        assert db.get_account(conn, account_id).balance == 200_000
+        assert db.get_account(conn, _owner_id(app), account_id).balance == 200_000
 
 
 def test_account_edit_unknown_account_404s(app, client: FlaskClient) -> None:
@@ -284,7 +306,7 @@ def test_account_delete_removes_contribution(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        assert db.get_account(conn, account_id) is None
+        assert db.get_account(conn, _owner_id(app), account_id) is None
 
 
 def test_account_delete_unknown_account_404s(app, client: FlaskClient) -> None:
@@ -349,7 +371,7 @@ def test_expense_create_form_can_set_essential(app, client: FlaskClient) -> None
 
     with app.app_context():
         conn = get_db()
-        expenses = db.list_expenses(conn)
+        expenses = db.list_expenses(conn, _owner_id(app))
         assert expenses[0].essential is True
 
 
@@ -369,7 +391,7 @@ def test_expense_update_form_can_clear_essential(app, client: FlaskClient) -> No
 
     with app.app_context():
         conn = get_db()
-        assert db.get_expense(conn, expense_id).essential is False
+        assert db.get_expense(conn, _owner_id(app), expense_id).essential is False
 
 
 def test_runway_page_has_no_essential_editing_controls(
@@ -448,7 +470,7 @@ def test_credit_cards_create_and_edit(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        accounts = db.list_credit_accounts(conn)
+        accounts = db.list_credit_accounts(conn, _owner_id(app))
     assert len(accounts) == 1
     credit_account_id = accounts[0].id
 
@@ -470,7 +492,7 @@ def test_credit_cards_create_and_edit(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        updated = db.get_credit_account(conn, credit_account_id)
+        updated = db.get_credit_account(conn, _owner_id(app), credit_account_id)
     assert updated.balance == 100_000
     assert updated.actual_payment == 5_000
 
@@ -510,7 +532,7 @@ def test_credit_account_create_negative_balance_shows_inline_error(
 
     with app.app_context():
         conn = get_db()
-        assert db.list_credit_accounts(conn) == []
+        assert db.list_credit_accounts(conn, _owner_id(app)) == []
 
 
 def test_credit_account_delete_removes_entry_and_updates_totals(
@@ -526,7 +548,7 @@ def test_credit_account_delete_removes_entry_and_updates_totals(
 
     with app.app_context():
         conn = get_db()
-        assert db.get_credit_account(conn, credit_account_id) is None
+        assert db.get_credit_account(conn, _owner_id(app), credit_account_id) is None
 
 
 def test_credit_account_delete_unknown_id_404s(app, client: FlaskClient) -> None:
@@ -579,7 +601,7 @@ def test_credit_account_create_and_edit_with_credit_limit(
 
     with app.app_context():
         conn = get_db()
-        account = db.list_credit_accounts(conn)[0]
+        account = db.list_credit_accounts(conn, _owner_id(app))[0]
     assert account.credit_limit == 100_000
 
     client.post(
@@ -596,5 +618,5 @@ def test_credit_account_create_and_edit_with_credit_limit(
 
     with app.app_context():
         conn = get_db()
-        updated = db.get_credit_account(conn, account.id)
+        updated = db.get_credit_account(conn, _owner_id(app), account.id)
     assert updated.credit_limit == 150_000

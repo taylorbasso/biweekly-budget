@@ -35,12 +35,14 @@
             </td>
             <td>
               <form method="post" action="/expenses/{{ expense.id }}/toggle-essential">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="checkbox" class="essential-toggle" {% if expense.essential %}checked{% endif %}>
               </form>
             </td>
             <td class="expense-actions">
               <a class="btn-edit" href="/expenses/{{ expense.id }}/edit">Edit</a>
               <form method="post" action="/expenses/{{ expense.id }}/delete">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit">Remove</button>
               </form>
             </td>

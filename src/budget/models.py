@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from flask_login import UserMixin
+
 RECURRENCE_TYPES = ("day_of_month", "day_of_week", "biweekly")
 
 
@@ -91,3 +93,11 @@ class CreditAccount:
             raise ValidationError("actual_payment must not be negative")
         if self.credit_limit < 0:
             raise ValidationError("credit_limit must not be negative")
+
+
+@dataclass(frozen=True)
+class User(UserMixin):  # type: ignore[misc]
+    """A signed-in account. The password hash never leaves db.py/accounts.py."""
+
+    id: int
+    email: str

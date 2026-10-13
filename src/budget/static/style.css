@@ -339,3 +339,19 @@ td button {
   border-radius: var(--radius);
   padding: 10px 14px;
 }
+
+nav form.signout {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  max-width: none;
+  margin-left: auto;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+nav .signed-in-as {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
