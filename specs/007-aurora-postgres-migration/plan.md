@@ -2,93 +2,84 @@
 
 **Branch**: `007-aurora-postgres-migration` | **Date**: 2026-10-12 | **Spec**: [spec.md](spec.md)
 
-**Input**: Feature specification from `/specs/007-aurora-postgres-migration/spec.md`
-
 ## Summary
 
-Replace the `sqlite3` storage layer in `src/budget/db.py` with PostgreSQL via psycopg 3 and
-plain SQL (no ORM). Deployed, the app talks to an Aurora PostgreSQL Serverless v2 cluster
-defined in the existing `biweekly-budget` stack of `~/code/basso-infra` (private subnets, SG
-open only to the app's task SG, encrypted, backups, master password in Secrets Manager
-injected by ECS). Schema is applied from numbered SQL migration files tracked in the repo.
-The database starts empty; no data is carried over, so the legacy `claim-legacy` command and nullable `user_id` are removed. Local dev and the whole test suite run against a
-local PostgreSQL. Business logic modules (`cycles`, `calculations`, `charts`, `accounts`,
-`models`) are untouched.
+Swap `sqlite3` for PostgreSQL (psycopg 3, plain SQL, no ORM) in `src/budget/db.py`. Deployed, the
+app uses an Aurora PostgreSQL Serverless v2 cluster added to the existing `biweekly-budget`
+Terraform stack in `~/code/basso-infra`. The database starts empty: no data transfer, and the
+now-pointless `claim-legacy` command and nullable `user_id` are removed. Local dev and tests use
+a local PostgreSQL. Business logic modules are untouched.
 
 ## Technical Context
 
-**Language/Version**: Python 3.11
-
-**Primary Dependencies**: Flask, Flask-Login, Flask-WTF, Flask-Limiter, gunicorn (existing); add `psycopg[binary]>=3.2`
-
-**Storage**: PostgreSQL 16 — Aurora PostgreSQL Serverless v2 (deployed), local PostgreSQL (dev/tests)
-
-**Testing**: pytest against a real local PostgreSQL (`BUDGET_TEST_DATABASE_URL`); mypy strict
-
-**Target Platform**: ECS Fargate (ARM64) behind an ALB in us-west-2; macOS dev machine
-
-**Project Type**: web-service (single Flask app)
-
-**Performance Goals**: pages < 2 s warm; first request after the 5-minute auto-pause may take up to ~30 s (see research R3)
-
-**Constraints**: no ORM; money stays integer cents; DB never publicly reachable; credentials never in the repo or in Terraform state beyond what AWS-managed secrets provide
-
-**Scale/Scope**: a handful of accounts, thousands of rows; 4 owned tables + `users`
+- **Language**: Python 3.11; add dependency `psycopg[binary]>=3.2`
+- **Storage**: PostgreSQL 17 (Aurora Serverless v2 deployed; local Postgres for dev/tests)
+- **Testing**: pytest against a real local Postgres; mypy strict
+- **Target**: ECS Fargate (ARM64) behind an ALB, us-west-2
+- **Constraints**: no ORM; money stays integer cents; DB never public; no secrets in repo
+- **Scale**: a few accounts, thousands of rows
 
 ## Constitution Check
 
-*GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
+All PASS, no violations (re-checked after design): single Flask app with plain driver and SQL
+(I); calculation modules untouched (II); `mypy` strict stays clean (III); private, encrypted DB
+with credentials from Secrets Manager (IV); money columns stay integer cents, existing boundary
+tests rerun (V); every `db.py` function keeps `user_id` scoping and `test_isolation.py` runs on
+Postgres (VI); schema lives in a tracked file (workflow).
 
-| Principle | Status | Notes |
-|---|---|---|
-| I. Simplicity First | PASS | Still one Flask app; plain driver + SQL, no ORM, no Alembic; hand-rolled migration runner is ~20 lines and avoids a new dependency. Baseline now PostgreSQL per v4.0.0. |
-| II. Library-Oriented | PASS | Only `db.py`, `app.py`, `wsgi.py` change; calculation modules untouched. |
-| III. Type Safety | PASS | `psycopg.Connection[dict[str, Any]]` typed; `mypy src/` must stay clean. |
-| IV. Data Privacy | PASS | DB private, encrypted at rest/in transit, creds from Secrets Manager; no third-party transfer, no telemetry. |
-| V. Financial Correctness | PASS | Money columns stay integer cents (`BIGINT`); dates become `DATE`; existing boundary tests unchanged and rerun. |
-| VI. Auth & Isolation | PASS | Every `db.py` function keeps `user_id` filtering; `test_isolation.py` runs on Postgres. |
-| Workflow: tracked migrations | PASS | `src/budget/migrations/NNNN_*.sql` + `schema_migrations` table. |
+## Design
 
-No violations; Complexity Tracking not needed. **Post-design re-check: still PASS.**
+### Application (this repo)
 
-## Project Structure
+- **Connection config**: libpq's standard `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`,
+  `PGDATABASE`, `PGSSLMODE` env vars only — `psycopg.connect("", row_factory=dict_row,
+  connect_timeout=30)`. Missing/wrong config makes `create_app` raise (no fallback). `BUDGET_DB_PATH`
+  and the `create_app(db_path)` argument are removed.
+- **Schema**: one tracked `src/budget/schema.sql` of `CREATE TABLE IF NOT EXISTS` statements run
+  at startup (replaces the SQLite `ALTER` ladder). Later changes append idempotent statements.
+- **Conversion in `db.py`**: `?` → `%s`; `lastrowid` → `INSERT ... RETURNING id`;
+  `sqlite3.IntegrityError` → `psycopg.errors.UniqueViolation`; drop `date.fromisoformat` /
+  `isoformat()` (native `DATE`); `bool(row["essential"])` / `int(essential)` → native boolean.
+  Function names and signatures are unchanged except the connection type; `routes.py`/`auth.py`
+  only change the type annotation.
+- **Removed**: `claim_legacy_rows`, the `claim-legacy` CLI command, `OWNED_TABLES`, the legacy
+  migrations, `tests/integration/test_claim_legacy.py`, `test_db_migration.py`, the `Dockerfile`
+  `/data` volume and `BUDGET_DB_PATH`, and the `claim-legacy` section of `CLAUDE.md`.
+- **Tests**: `conftest.py` connects using `PG*` env (default `PGDATABASE=budget_test`) and, per
+  test, runs `DROP SCHEMA public CASCADE; CREATE SCHEMA public;` then the schema. Everything else
+  in the suite is unchanged.
+- **Dev**: `scripts/dev-server.sh` sets `PGDATABASE=budget_dev`.
+- **Health check**: `/healthz` must not touch the DB, so the ALB doesn't keep the cluster awake or fail during a resume.
 
-### Documentation (this feature)
+### Schema (types)
 
-```text
-specs/007-aurora-postgres-migration/
-├── plan.md
-├── research.md
-├── data-model.md
-├── quickstart.md
-├── contracts/
-│   ├── configuration.md     # env vars, CLI commands
-│   └── infrastructure.md    # changes to ~/code/basso-infra
-├── checklists/requirements.md
-└── tasks.md                 # /speckit-tasks (not created here)
-```
+| Was | Now |
+|---|---|
+| `INTEGER PRIMARY KEY AUTOINCREMENT` | `BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` |
+| money `INTEGER` | `BIGINT` (exact cents) |
+| ISO date `TEXT` | `DATE` |
+| `created_at TEXT` | `TIMESTAMPTZ` |
+| `essential INTEGER` | `BOOLEAN` |
+| `interest_rate REAL` | `DOUBLE PRECISION` (model already uses `float`; not money) |
+| nullable `user_id` | `user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE` |
 
-### Source Code (repository root)
+Tables are otherwise as in the current `db.py` (`users`, `pay_schedule` with `UNIQUE(user_id)`,
+`recurring_expense`, `account`, `credit_account`, plus the `user_id` indexes).
 
-```text
-src/budget/
-├── db.py                    # rewritten for psycopg: connect(), run_migrations(), CRUD (same function names/signatures except conn type)
-├── migrations/
-│   └── 0001_initial.sql     # full current schema (users, pay_schedule, recurring_expense, account, credit_account)
-├── app.py                   # create_app(database_url=...); get_db() returns psycopg connection; claim-legacy command removed
-├── wsgi.py                  # reads BUDGET_DATABASE_URL / PG* env
-└── routes.py, auth.py       # type annotation changes only (sqlite3.Connection → db.Connection)
-tests/
-├── conftest.py              # Postgres fixture: fresh schema per test
-├── integration/             # test_db_migration.py replaced by test_migrations.py; test_claim_legacy.py deleted
-scripts/
-├── dev-server.sh            # sets BUDGET_DATABASE_URL for local dev DB
-└── check.sh                 # unchanged; requires local Postgres up
-Dockerfile                   # drop /data volume and BUDGET_DB_PATH
-pyproject.toml               # + psycopg[binary]
-```
+### Infrastructure (`~/code/basso-infra/basso-root/us-west-2/biweekly-budget`, new `database.tf`)
 
-**Structure Decision**: keep the existing single-project layout; add a `migrations/` data dir. The old in-place SQLite `ALTER` migrations and legacy-ownership code are dropped; there is no old data to upgrade.
+- DB subnet group from the existing `PrivateSubnet-*` subnets (looked up by Name tag, like the
+  public ones already are); no public access.
+- New DB security group: ingress 5432 only from the existing task security group.
+- `aws_rds_cluster`: `aurora-postgresql` 17.x (SSL forced by default), `storage_encrypted`,
+  `manage_master_user_password = true` (password lives in Secrets Manager, never in state),
+  `database_name`/`master_username` = `budget`, `backup_retention_period = 1`,
+  `skip_final_snapshot = true`, `serverlessv2_scaling_configuration { min_capacity = 0,
+  max_capacity = 1, seconds_until_auto_pause = 300 }`. One `db.serverless` instance.
+- Execution role: `secretsmanager:GetSecretValue` on the cluster's master secret only.
+- Task definition: env `PGHOST` (cluster endpoint), `PGPORT`, `PGUSER`, `PGDATABASE`,
+  `PGSSLMODE=require`; secret `PGPASSWORD` from `<secret_arn>:password::`.
+- Order: push the new app image first, then apply (the task-definition change restarts the service).
 
 ## Complexity Tracking
 

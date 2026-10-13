@@ -59,9 +59,6 @@ The database cluster, its networking, credentials, and access rules are defined 
 ### Edge Cases
 
 - The managed database is scaled down or idle and takes a moment to resume: the first request must succeed (possibly slower) or show a friendly error, never corrupt data.
-- The database is briefly unreachable during a request: the user sees a clear error page and no partial writes are persisted.
-- Two requests modify the same account's data at once: both complete without losing either write.
-- The app starts against an empty database: schema is created through tracked migrations.
 - Old local database files left on a developer machine are ignored by the app.
 
 ## Requirements *(mandatory)*
@@ -73,14 +70,12 @@ The database cluster, its networking, credentials, and access rules are defined 
 - **FR-003**: All existing user-visible behavior (sign-in, registration, pay schedule, expenses, cycle leftover, category breakdown, other shipped features) MUST be unchanged.
 - **FR-004**: Money MUST remain exact integer cents end to end, with no rounding changes introduced by the move.
 - **FR-005**: Every query MUST remain scoped to the signed-in account, and the automated cross-account isolation tests MUST pass against the new database.
-- **FR-008**: Database schema changes MUST be applied through migrations tracked in the repository.
+- **FR-008**: The database schema MUST be defined in a file tracked in the repository and applied automatically at startup.
 - **FR-009**: Because the new database starts empty, the pre-login "unowned data" concept and its `claim-legacy` command are retired; every record MUST belong to an account.
 - **FR-010**: Database credentials and connection details MUST be supplied to the app via runtime configuration or a secrets store, never committed to the repository.
-- **FR-011**: The database MUST be provisioned from the infrastructure repository, with no public access, reachable only from the app's environment, with encryption at rest and in transit and automated backups enabled.
+- **FR-011**: The database MUST be provisioned from the infrastructure repository, with no public access, reachable only from the app's environment, with encryption at rest and in transit and backups enabled.
 - **FR-012**: Developers MUST be able to run the app and the full test suite locally without access to the cloud database.
 - **FR-013**: Project documentation and the constitution's storage principles MUST be amended to reflect the new storage baseline before planning begins.
-- **FR-014**: The data-privacy rules MUST still hold: no telemetry and no financial data sent to any third-party service.
-- **FR-015**: Cutover MUST include a documented rollback path to the previous deployment image.
 - **FR-016**: The database MUST scale down to zero capacity when idle; the first request after an idle period MAY be slow but MUST succeed.
 
 ### Key Entities
@@ -96,7 +91,6 @@ The database cluster, its networking, credentials, and access rules are defined 
 - **SC-003**: The full automated test suite and type checks pass, including the cross-account isolation tests on every route touching budget data.
 - **SC-004**: The database cannot be reached from the public internet, confirmed by a failed connection attempt from outside the app's environment.
 - **SC-005**: Data survives an app restart or redeploy with no loss, and the operator can restore from an automated backup.
-- **SC-006**: Downtime during cutover is limited to a planned window of under 30 minutes.
 
 ## Assumptions
 
@@ -104,6 +98,6 @@ The database cluster, its networking, credentials, and access rules are defined 
 - The operator's infrastructure repository (`~/code/basso-infra`) is the home for all new cloud resources, following its existing layout and conventions, and already contains the app's deployment, networking, and certificate setup.
 - No existing data is carried over: the deployment starts fresh and the previous local database file is simply left alone.
 - For local development and tests, a local PostgreSQL-compatible database is acceptable, so the same database engine behavior is exercised in tests.
-- Standard widely used tooling is preferred over custom machinery, consistent with the project's KISS rule; no ORM is introduced.
+- KISS: plain SQL, no ORM, no migration framework, no rollback tooling; if the cutover goes wrong, redeploy the previous commit.
 - Cost matters more than idle latency: the database pauses to zero capacity when idle.
 - Moving storage off the current baseline requires amending the constitution (Principles I and IV) first, as it already notes; that amendment is part of this feature's first step.
