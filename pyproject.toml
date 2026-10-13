@@ -17,6 +17,9 @@ dev = [
     "pytest>=8.0",
     "mypy>=1.10",
 ]
+deploy = [
+    "boto3[crt]>=1.34",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
