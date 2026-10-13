@@ -13,4 +13,3 @@ build/
 *.sqlite3
 .DS_Store
 .dev-server.log
-deploy/config.json
