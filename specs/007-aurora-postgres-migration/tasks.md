@@ -42,12 +42,12 @@ No new tests are written; existing tests are converted to run on PostgreSQL. Inf
 - [X] T016 [US1] Update `Dockerfile`: remove `/data`, the `VOLUME`, and `BUDGET_DB_PATH`
 - [X] T017 [US1] In `~/code/basso-infra/basso-root/us-west-2/biweekly-budget/main.tf` task definition add env `PGHOST` (cluster endpoint), `PGPORT=5432`, `PGUSER=budget`, `PGDATABASE=budget`, `PGSSLMODE=require` and secret `PGPASSWORD` from `<master secret ARN>:password::`
 - [X] T018 [US1] Build and push the new image with `deploy/deploy.py`, then run `terragrunt apply` in the biweekly-budget stack (image first, so the restarted service gets the new code)
-- [ ] T019 [US1] Verify in production per `specs/007-aurora-postgres-migration/quickstart.md`: register, enter pay schedule and expenses, redeploy and confirm persistence, confirm `psql` to the cluster endpoint from the laptop times out
+- [X] T019 [US1] Verify in production per `specs/007-aurora-postgres-migration/quickstart.md`: register, enter pay schedule and expenses, redeploy and confirm persistence, confirm `psql` to the cluster endpoint from the laptop times out
 
 ## Phase 6: Polish
 
 - [X] T020 Update `CLAUDE.md` and `README.md`: remove the `claim-legacy` sections, document local Postgres setup and the `PG*` env vars, drop `BUDGET_DB_PATH`; remove the SQLite lines from `.gitignore` only if nothing else uses them
-- [ ] T021 Delete the stale local SQLite files (`budget.db`, `instance/`) if untracked and unwanted
+- [X] T021 Keep the local SQLite files (`budget.db`, `instance/`) so data can be copied from them by hand — intentionally not deleted
 
 ## Dependencies
 
