@@ -73,7 +73,7 @@ The database cluster, its networking, credentials, and access rules are defined 
 - **FR-008**: The database schema MUST be defined in a file tracked in the repository and applied automatically at startup.
 - **FR-009**: Because the new database starts empty, the pre-login "unowned data" concept and its `claim-legacy` command are retired; every record MUST belong to an account.
 - **FR-010**: Database credentials and connection details MUST be supplied to the app via runtime configuration or a secrets store, never committed to the repository.
-- **FR-011**: The database MUST be provisioned from the infrastructure repository, with no public access, reachable only from the app's environment, with encryption at rest and in transit and backups enabled.
+- **FR-011**: The database MUST be provisioned from the infrastructure repository, with no public access, reachable only from the app's environment, with encryption at rest and in transit.
 - **FR-012**: Developers MUST be able to run the app and the full test suite locally without access to the cloud database.
 - **FR-013**: Project documentation and the constitution's storage principles MUST be amended to reflect the new storage baseline before planning begins.
 - **FR-016**: The database MUST scale down to zero capacity when idle; the first request after an idle period MAY be slow but MUST succeed.
@@ -90,7 +90,7 @@ The database cluster, its networking, credentials, and access rules are defined 
 - **SC-002**: No user-visible change in features; every page loads in under 2 seconds under normal use; the first request after a long idle period may take up to 30 seconds while the database resumes.
 - **SC-003**: The full automated test suite and type checks pass, including the cross-account isolation tests on every route touching budget data.
 - **SC-004**: The database cannot be reached from the public internet, confirmed by a failed connection attempt from outside the app's environment.
-- **SC-005**: Data survives an app restart or redeploy with no loss, and the operator can restore from an automated backup.
+- **SC-005**: Data survives an app restart or redeploy with no loss.
 
 ## Assumptions
 

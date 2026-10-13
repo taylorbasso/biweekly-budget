@@ -73,7 +73,7 @@ Tables are otherwise as in the current `db.py` (`users`, `pay_schedule` with `UN
 - New DB security group: ingress 5432 only from the existing task security group.
 - `aws_rds_cluster`: `aurora-postgresql` 17.x (SSL forced by default), `storage_encrypted`,
   `manage_master_user_password = true` (password lives in Secrets Manager, never in state),
-  `database_name`/`master_username` = `budget`, `backup_retention_period = 1`,
+  `database_name`/`master_username` = `budget`, no backup configuration (Aurora's 1-day minimum is left as is; it cannot be disabled),
   `skip_final_snapshot = true`, `serverlessv2_scaling_configuration { min_capacity = 0,
   max_capacity = 1, seconds_until_auto_pause = 300 }`. One `db.serverless` instance.
 - Execution role: `secretsmanager:GetSecretValue` on the cluster's master secret only.
