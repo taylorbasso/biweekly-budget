@@ -12,7 +12,6 @@ Add `database.tf` to the existing stack (it already owns the task SG, execution 
 | `aws_rds_cluster_instance` | `instance_class=db.serverless`, `publicly_accessible=false`, same engine |
 | `aws_iam_role_policy.execution_db_secret` | `secretsmanager:GetSecretValue` on `aws_rds_cluster.app.master_user_secret[0].secret_arn` |
 | task definition | env `PGHOST`(cluster endpoint) `PGPORT=5432` `PGUSER=budget` `PGDATABASE=budget` `PGSSLMODE=require`; secret `PGPASSWORD` ← `<secret_arn>:password::` |
-| ECS Exec (for import) | `enable_execute_command=true` on the service; new task role with `ssmmessages:*Channel` permissions (needed only during import — may be applied then removed) |
 
 Outputs to add: `db_endpoint`, `db_secret_arn`.
 

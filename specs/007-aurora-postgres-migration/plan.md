@@ -11,8 +11,7 @@ plain SQL (no ORM). Deployed, the app talks to an Aurora PostgreSQL Serverless v
 defined in the existing `biweekly-budget` stack of `~/code/basso-infra` (private subnets, SG
 open only to the app's task SG, encrypted, backups, master password in Secrets Manager
 injected by ECS). Schema is applied from numbered SQL migration files tracked in the repo.
-A `flask import-sqlite` command copies existing SQLite data into Postgres and verifies
-counts and per-account computed results. Local dev and the whole test suite run against a
+The database starts empty; no data is carried over, so the legacy `claim-legacy` command and nullable `user_id` are removed. Local dev and the whole test suite run against a
 local PostgreSQL. Business logic modules (`cycles`, `calculations`, `charts`, `accounts`,
 `models`) are untouched.
 
@@ -30,7 +29,7 @@ local PostgreSQL. Business logic modules (`cycles`, `calculations`, `charts`, `a
 
 **Project Type**: web-service (single Flask app)
 
-**Performance Goals**: pages < 2 s warm; first request after an idle auto-pause may take up to ~30 s (see research R3)
+**Performance Goals**: pages < 2 s warm; first request after the 5-minute auto-pause may take up to ~30 s (see research R3)
 
 **Constraints**: no ORM; money stays integer cents; DB never publicly reachable; credentials never in the repo or in Terraform state beyond what AWS-managed secrets provide
 
@@ -43,7 +42,7 @@ local PostgreSQL. Business logic modules (`cycles`, `calculations`, `charts`, `a
 | Principle | Status | Notes |
 |---|---|---|
 | I. Simplicity First | PASS | Still one Flask app; plain driver + SQL, no ORM, no Alembic; hand-rolled migration runner is ~20 lines and avoids a new dependency. Baseline now PostgreSQL per v4.0.0. |
-| II. Library-Oriented | PASS | Only `db.py`, `app.py`, `wsgi.py` and a new importer change; calculation modules untouched. |
+| II. Library-Oriented | PASS | Only `db.py`, `app.py`, `wsgi.py` change; calculation modules untouched. |
 | III. Type Safety | PASS | `psycopg.Connection[dict[str, Any]]` typed; `mypy src/` must stay clean. |
 | IV. Data Privacy | PASS | DB private, encrypted at rest/in transit, creds from Secrets Manager; no third-party transfer, no telemetry. |
 | V. Financial Correctness | PASS | Money columns stay integer cents (`BIGINT`); dates become `DATE`; existing boundary tests unchanged and rerun. |
@@ -76,13 +75,12 @@ src/budget/
 ├── db.py                    # rewritten for psycopg: connect(), run_migrations(), CRUD (same function names/signatures except conn type)
 ├── migrations/
 │   └── 0001_initial.sql     # full current schema (users, pay_schedule, recurring_expense, account, credit_account)
-├── importer.py              # SQLite → Postgres copy + verification (plain Python, Flask-independent)
-├── app.py                   # create_app(database_url=...); get_db() returns psycopg connection; import-sqlite CLI command
+├── app.py                   # create_app(database_url=...); get_db() returns psycopg connection; claim-legacy command removed
 ├── wsgi.py                  # reads BUDGET_DATABASE_URL / PG* env
 └── routes.py, auth.py       # type annotation changes only (sqlite3.Connection → db.Connection)
 tests/
 ├── conftest.py              # Postgres fixture: fresh schema per test
-├── integration/             # test_db_migration.py replaced by test_migrations.py + test_importer.py
+├── integration/             # test_db_migration.py replaced by test_migrations.py; test_claim_legacy.py deleted
 scripts/
 ├── dev-server.sh            # sets BUDGET_DATABASE_URL for local dev DB
 └── check.sh                 # unchanged; requires local Postgres up
@@ -90,7 +88,7 @@ Dockerfile                   # drop /data volume and BUDGET_DB_PATH
 pyproject.toml               # + psycopg[binary]
 ```
 
-**Structure Decision**: keep the existing single-project layout; add a `migrations/` data dir and one `importer.py` module. The old in-place SQLite `ALTER` migrations are dropped — upgrading old data is the importer's job, not the runtime's.
+**Structure Decision**: keep the existing single-project layout; add a `migrations/` data dir. The old in-place SQLite `ALTER` migrations and legacy-ownership code are dropped; there is no old data to upgrade.
 
 ## Complexity Tracking
 
