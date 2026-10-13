@@ -64,6 +64,12 @@ main {
   padding: 32px 24px 64px;
 }
 
+/* Form-only pages (login, register, edit forms): shrink the column to the form's
+   width so the heading and form sit centered instead of hugging the left. */
+main:has(> form:not(.cycle-select-form)) {
+  max-width: 468px;
+}
+
 h1 {
   font-size: 1.6rem;
   margin: 0 0 20px;

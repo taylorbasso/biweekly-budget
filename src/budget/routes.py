@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sqlite3
 from decimal import Decimal, InvalidOperation
 from datetime import date
 
@@ -56,7 +55,7 @@ RECURRENCE_TYPE_LABELS: dict[str, str] = {
 }
 
 
-def _existing_categories(conn: sqlite3.Connection) -> list[str]:
+def _existing_categories(conn: db.Connection) -> list[str]:
     categories = {
         expense.category for expense in db.list_expenses(conn, _user_id()) if expense.category
     }

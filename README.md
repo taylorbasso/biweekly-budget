@@ -62,12 +62,12 @@ and VI).
 Every page requires sign-in. Create an account at `/register`; each account has its own
 data. For production set `BUDGET_SECRET_KEY` (required) and, behind a load balancer,
 `BUDGET_TRUST_PROXY=1`; local development uses `BUDGET_ENV=development`
-(`./scripts/dev-server.sh` sets it). Budget data created before accounts existed can be
-attached to an account with:
+(`./scripts/dev-server.sh` sets it).
 
-```bash
-flask --app src.budget.app claim-legacy --email you@example.com
-```
+The database is PostgreSQL, configured with the standard `PG*` environment variables. Locally:
+`brew install postgresql@16 && brew services start postgresql@16`, then
+`createdb budget_dev && createdb budget_test` (`./scripts/dev-server.sh` uses `budget_dev`;
+tests use `budget_test`).
 
 Run tests and type checks with:
 

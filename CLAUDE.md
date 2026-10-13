@@ -82,11 +82,14 @@ account has its own data. Config via environment variables:
   refuses to start without it.
 - `BUDGET_TRUST_PROXY=1` — trust one proxy hop (the ALB) for client IP and HTTPS scheme.
 
-Data created before login existed is unowned and invisible until an operator assigns it:
-
-```bash
-source .venv/bin/activate && flask --app src.budget.app claim-legacy --email you@example.com
-```
+Database connection uses libpq's standard `PG*` environment variables (`PGHOST`, `PGPORT`,
+`PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGSSLMODE`). Locally: PostgreSQL via
+`brew install postgresql@16 && brew services start postgresql@16`, then
+`createdb budget_dev && createdb budget_test`. `dev-server.sh` uses `budget_dev`;
+`check.sh` and the tests use `budget_test` (tests wipe it). The schema is `src/budget/schema.sql`,
+applied at startup; change it with idempotent statements. Deployed: Aurora PostgreSQL
+Serverless v2 defined in `~/code/basso-infra` (pauses when idle; first request after a pause
+is slow).
 
 New routes go in the `budget` blueprint (`routes.py`), which requires login by default;
 every `db.py` function takes `user_id` and filters on it. Add an isolation test

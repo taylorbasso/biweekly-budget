@@ -27,9 +27,10 @@ start() {
   fi
   source .venv/bin/activate
   export BUDGET_ENV=development
+  export PGDATABASE="${PGDATABASE:-budget_dev}"
   nohup flask --app src.budget.app run --port "$PORT" > "$LOG_FILE" 2>&1 &
   disown
-  sleep 1
+  sleep 3
   pid="$(find_pid)"
   if [ -z "$pid" ]; then
     echo "Failed to start — check $LOG_FILE" >&2

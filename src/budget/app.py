@@ -1,27 +1,20 @@
 from __future__ import annotations
 
 import os
-import sqlite3
 from collections.abc import Mapping
 from datetime import timedelta
-from pathlib import Path
 from typing import Any
 
-import click
-from flask import Flask, Response, current_app, g, request
+from flask import Flask, Response, g, request
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 from budget import db
-from budget.accounts import normalize_email
-from budget.models import ValidationError
 
 
 DEV_SECRET_KEY = "dev-only-secret-key"
 
 
-def create_app(
-    db_path: str | Path | None = None, config: Mapping[str, Any] | None = None
-) -> Flask:
+def create_app(config: Mapping[str, Any] | None = None) -> Flask:
     app = Flask(__name__)
     app.config["TEMPLATES_AUTO_RELOAD"] = True
 
@@ -46,15 +39,9 @@ def create_app(
             app.wsgi_app, x_for=1, x_proto=1, x_host=1
         )
 
-    if db_path is None:
-        Path(app.instance_path).mkdir(parents=True, exist_ok=True)
-        db_path = Path(app.instance_path) / "budget.sqlite3"
-    app.config["DATABASE"] = str(db_path)
-
-    with app.app_context():
-        conn = db.connect(app.config["DATABASE"])
-        db.init_db(conn)
-        conn.close()
+    conn = db.connect()
+    db.init_db(conn)
+    conn.close()
 
     app.teardown_appcontext(_close_db)
 
@@ -72,20 +59,6 @@ def create_app(
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(bp)
-
-    @app.cli.command("claim-legacy")
-    @click.option("--email", required=True, help="Email of the existing account to receive the data.")
-    def claim_legacy(email: str) -> None:
-        """Assign pre-login (unowned) budget data to an existing account."""
-        found = db.get_user_with_hash(get_db(), normalize_email(email))
-        if found is None:
-            raise click.ClickException(f"No account with email {email}")
-        try:
-            counts = db.claim_legacy_rows(get_db(), found[0].id)
-        except ValidationError as exc:
-            raise click.ClickException(str(exc)) from exc
-        for table, rows in counts.items():
-            click.echo(f"{table}: {rows} row(s) assigned to {found[0].email}")
 
     @app.after_request
     def _no_store(response: Response) -> Response:
@@ -115,9 +88,9 @@ def _format_utilization_percent(percent: float | None) -> str:
     return f"{percent:.1f}%"
 
 
-def get_db() -> sqlite3.Connection:
+def get_db() -> db.Connection:
     if "db" not in g:
-        g.db = db.connect(current_app.config["DATABASE"])
+        g.db = db.connect()
     return g.db  # type: ignore[no-any-return]
 
 

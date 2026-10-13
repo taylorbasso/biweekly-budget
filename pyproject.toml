@@ -13,6 +13,7 @@ dependencies = [
     "flask-login>=0.6.3",
     "flask-wtf>=1.2",
     "flask-limiter>=3.5",
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
@@ -28,7 +29,7 @@ deploy = [
 where = ["src"]
 
 [tool.setuptools.package-data]
-budget = ["templates/*", "static/*"]
+budget = ["templates/*", "static/*", "schema.sql"]
 
 [tool.mypy]
 python_version = "3.11"

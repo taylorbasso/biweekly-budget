@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from pathlib import Path
+import os
 
 import pytest
 from flask import Flask
@@ -16,15 +16,17 @@ TEST_PASSWORD = "correct horse battery"
 TEST_EMAIL = "owner@example.com"
 
 
-@pytest.fixture
-def db_path(tmp_path: Path) -> Path:
-    return tmp_path / "test.sqlite3"
+os.environ.setdefault("PGDATABASE", "budget_test")
 
 
 @pytest.fixture
-def app(db_path: Path) -> Flask:
+def app() -> Flask:
+    conn = db.connect()
+    conn.execute("DROP SCHEMA public CASCADE")
+    conn.execute("CREATE SCHEMA public")
+    conn.commit()
+    conn.close()
     flask_app = create_app(
-        db_path,
         {
             "TESTING": True,
             "SECRET_KEY": "test-secret-key",

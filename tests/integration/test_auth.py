@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 import pytest
 from flask import Flask
@@ -71,13 +70,13 @@ def test_responses_are_not_cacheable(logged_in_client: FlaskClient) -> None:
 
 
 def test_production_defaults_require_secure_cookies_and_secret(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.delenv("BUDGET_ENV", raising=False)
     monkeypatch.delenv("BUDGET_SECRET_KEY", raising=False)
     with pytest.raises(RuntimeError):
-        create_app(tmp_path / "a.sqlite3")
-    app = create_app(tmp_path / "b.sqlite3", {"SECRET_KEY": "x"})
+        create_app()
+    app = create_app({"SECRET_KEY": "x"})
     assert app.config["SESSION_COOKIE_SECURE"] is True
     assert app.config["SESSION_COOKIE_HTTPONLY"] is True
     assert app.config["SESSION_COOKIE_SAMESITE"] == "Lax"
@@ -213,9 +212,8 @@ def test_signed_in_user_visiting_register_goes_home(logged_in_client: FlaskClien
     assert logged_in_client.get("/register").status_code == 302
 
 
-def test_registration_requires_csrf_token(tmp_path: Path) -> None:
+def test_registration_requires_csrf_token() -> None:
     csrf_app = create_app(
-        tmp_path / "csrf.sqlite3",
         {"TESTING": True, "SECRET_KEY": "k", "SESSION_COOKIE_SECURE": False},
     )
     from budget.auth import limiter
@@ -260,9 +258,8 @@ def test_logout_requires_post(logged_in_client: FlaskClient) -> None:
     assert logged_in_client.get("/").status_code == 200  # still signed in
 
 
-def test_logout_requires_csrf_token(tmp_path: Path) -> None:
+def test_logout_requires_csrf_token() -> None:
     csrf_app = create_app(
-        tmp_path / "csrf.sqlite3",
         {"TESTING": True, "SECRET_KEY": "k", "SESSION_COOKIE_SECURE": False},
     )
     assert csrf_app.test_client().post("/logout").status_code == 400
