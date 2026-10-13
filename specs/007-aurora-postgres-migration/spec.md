@@ -41,18 +41,11 @@ A developer can run the app and the full automated test suite on their machine w
 
 ---
 
-### User Story 3 - Database infrastructure is managed as code, privately (Priority: P2)
+### User Story 3 - Database is private and managed as code (Priority: P2)
 
-The database cluster, its networking, credentials, and access rules are defined in the operator's infrastructure repository, reachable only from the app's own environment, and its credentials are not stored in the application repository.
+The database is defined in the infrastructure repository, reachable only from the app, and its credentials are not stored in this repository.
 
-**Why this priority**: Matches the project's data-privacy rules (no third-party exposure) and the operator's existing practice of defining infrastructure as code.
-
-**Independent Test**: Review the infrastructure definitions and confirm the database has no public endpoint, only the app's environment can connect, and the app receives its credentials at runtime.
-
-**Acceptance Scenarios**:
-
-1. **Given** the infrastructure is applied, **When** connecting to the database from outside the app's private network, **Then** the connection is refused.
-2. **Given** the app starts, **When** database credentials are missing or wrong, **Then** it refuses to start with a clear error rather than falling back to a local file.
+**Independent Test**: Review the infrastructure definitions: no public endpoint, only the app's security group can connect, password comes from a secret.
 
 ---
 
@@ -66,7 +59,6 @@ The database cluster, its networking, credentials, and access rules are defined 
 ### Functional Requirements
 
 - **FR-001**: The deployed app MUST store and read all accounts and budget data from an Amazon Aurora PostgreSQL Serverless v2 database.
-- **FR-002**: The app MUST NOT fall back to a local database file in deployment; missing or invalid database configuration MUST stop startup with a clear error.
 - **FR-003**: All existing user-visible behavior (sign-in, registration, pay schedule, expenses, cycle leftover, category breakdown, other shipped features) MUST be unchanged.
 - **FR-004**: Money MUST remain exact integer cents end to end, with no rounding changes introduced by the move.
 - **FR-005**: Every query MUST remain scoped to the signed-in account, and the automated cross-account isolation tests MUST pass against the new database.
@@ -75,7 +67,6 @@ The database cluster, its networking, credentials, and access rules are defined 
 - **FR-010**: Database credentials and connection details MUST be supplied to the app via runtime configuration or a secrets store, never committed to the repository.
 - **FR-011**: The database MUST be provisioned from the infrastructure repository, with no public access, reachable only from the app's environment, with encryption at rest and in transit.
 - **FR-012**: Developers MUST be able to run the app and the full test suite locally without access to the cloud database.
-- **FR-013**: Project documentation and the constitution's storage principles MUST be amended to reflect the new storage baseline before planning begins.
 - **FR-016**: The database MUST scale down to zero capacity when idle; the first request after an idle period MAY be slow but MUST succeed.
 
 ### Key Entities
@@ -87,17 +78,14 @@ The database cluster, its networking, credentials, and access rules are defined 
 ### Measurable Outcomes
 
 - **SC-001**: A newly registered account can enter a pay schedule and expenses and see leftover and breakdown values that match the feature 001 worked example to the cent.
-- **SC-002**: No user-visible change in features; every page loads in under 2 seconds under normal use; the first request after a long idle period may take up to 30 seconds while the database resumes.
-- **SC-003**: The full automated test suite and type checks pass, including the cross-account isolation tests on every route touching budget data.
-- **SC-004**: The database cannot be reached from the public internet, confirmed by a failed connection attempt from outside the app's environment.
+- **SC-002**: No user-visible change in features.
 - **SC-005**: Data survives an app restart or redeploy with no loss.
 
 ## Assumptions
 
-- This is a hobby app with a small number of accounts and a small data volume; a brief planned maintenance window for cutover is acceptable.
+- This is a hobby app with a handful of accounts.
 - The operator's infrastructure repository (`~/code/basso-infra`) is the home for all new cloud resources, following its existing layout and conventions, and already contains the app's deployment, networking, and certificate setup.
 - No existing data is carried over: the deployment starts fresh and the previous local database file is simply left alone.
-- For local development and tests, a local PostgreSQL-compatible database is acceptable, so the same database engine behavior is exercised in tests.
+- For local development and tests, a local PostgreSQL is used.
 - KISS: plain SQL, no ORM, no migration framework, no rollback tooling; if the cutover goes wrong, redeploy the previous commit.
 - Cost matters more than idle latency: the database pauses to zero capacity when idle.
-- Moving storage off the current baseline requires amending the constitution (Principles I and IV) first, as it already notes; that amendment is part of this feature's first step.
