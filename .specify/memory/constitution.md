@@ -15,7 +15,7 @@ Modified principles:
 Added sections: none
 Removed sections: none
 Other changes:
-  - Development Workflow: migrations wording no longer refers to a local database file;
+  - Development Workflow: tracked schema file replaces migrations; every row has an owner;
     baseline wording is Flask + PostgreSQL; a PostgreSQL-backed test run is required
   - Governance: compliance review adds a storage-engine change as a trigger
 Templates requiring updates:
