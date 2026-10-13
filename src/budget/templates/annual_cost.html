@@ -5,12 +5,13 @@
 
 {% if breakdown.categories %}
   {% for category in breakdown.categories %}
-    <h2>{{ category.category }} — ${{ category.subtotal | usd }}</h2>
+    <h2>{{ category.category }} — ${{ category.subtotal | usd }} ({{ "%.1f"|format(category.percent_of_total) }}%)</h2>
     <table>
       <thead>
         <tr>
           <th>Name</th>
           <th>Annual Cost</th>
+          <th>% of Total</th>
         </tr>
       </thead>
       <tbody>
@@ -18,6 +19,7 @@
         <tr>
           <td>{{ item.name }}</td>
           <td>${{ item.annual_cost | usd }}</td>
+          <td>{{ "%.1f"|format(item.percent_of_total) }}%</td>
         </tr>
         {% endfor %}
       </tbody>

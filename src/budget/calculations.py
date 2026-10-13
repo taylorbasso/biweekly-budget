@@ -49,6 +49,7 @@ class AnnualCostItem:
     expense_id: int | None
     name: str
     annual_cost: int
+    percent_of_total: float
 
 
 @dataclass(frozen=True)
@@ -56,6 +57,7 @@ class CategoryAnnualCost:
     category: str
     items: list[AnnualCostItem]
     subtotal: int
+    percent_of_total: float
 
 
 @dataclass(frozen=True)
@@ -234,14 +236,21 @@ def compute_runway(
 def compute_annual_cost_breakdown(
     expenses: list[RecurringExpense],
 ) -> AnnualCostBreakdown:
+    grand_total = sum(annual_cost(expense) for expense in expenses)
+
+    def _percent(amount: int) -> float:
+        return float(amount) / grand_total * 100 if grand_total else 0.0
+
     by_category: dict[str, list[AnnualCostItem]] = {}
     for expense in expenses:
         category = expense.category or UNCATEGORIZED
+        cost = annual_cost(expense)
         by_category.setdefault(category, []).append(
             AnnualCostItem(
                 expense_id=expense.id,
                 name=expense.name,
-                annual_cost=annual_cost(expense),
+                annual_cost=cost,
+                percent_of_total=_percent(cost),
             )
         )
 
@@ -252,10 +261,14 @@ def compute_annual_cost_breakdown(
         )
         subtotal = sum(item.annual_cost for item in items)
         categories.append(
-            CategoryAnnualCost(category=category, items=items, subtotal=subtotal)
+            CategoryAnnualCost(
+                category=category,
+                items=items,
+                subtotal=subtotal,
+                percent_of_total=_percent(subtotal),
+            )
         )
 
-    grand_total = sum(category.subtotal for category in categories)
     return AnnualCostBreakdown(categories=categories, grand_total=grand_total)
 
 
