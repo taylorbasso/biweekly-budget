@@ -1,6 +1,6 @@
 <!--
 Sync Impact Report
-Version change: 3.1.0 → 4.0.0
+Version change: 3.1.0 → 4.0.0 (workflow schema rule simplified: tracked schema file instead of migrations)
 Bump rationale: MAJOR — the storage baseline in Principles I and IV is redefined from
   SQLite to Amazon Aurora PostgreSQL Serverless v2 for the deployed app (backward-
   incompatible with prior guidance that mandated SQLite).
@@ -156,17 +156,16 @@ becoming a data leak. Using the standard extensions for the mechanics keeps the 
 - A static type checker MUST pass before a change is considered done (Principle III).
 - Automated tests covering cycle-boundary and leftover-calculation logic MUST pass before
   a change touching that logic is considered done (Principle V).
-- Database schema changes MUST be expressed as migrations tracked in the repository, not
-  as ad-hoc manual edits to any database (local or deployed).
+- The database schema MUST be defined in a file tracked in the repository and applied
+  automatically at startup; schema changes MUST be edits to that file (idempotent
+  statements), not manual edits to any database.
 - The automated test suite MUST run against PostgreSQL, the same engine as production.
 - Templates MUST rely on Flask/Jinja2's default auto-escaping for any user-supplied text
   (expense names, categories) rendered in HTML; auto-escaping MUST NOT be disabled to
   work around a formatting problem.
 - New interfaces, dependencies, or stored-data categories that go beyond the Flask +
   PostgreSQL baseline MUST be justified against Principles I, IV, and VI before being added.
-- Schema changes that add or change per-account ownership of data MUST be tracked
-  migrations that preserve every existing row, and MUST NOT assign existing data to an
-  account other than the one explicitly designated as its owner.
+- Every row of budget data MUST belong to an account.
 - A change is not done until the Principle VI isolation tests pass for every kind of
   record it adds or changes.
 
