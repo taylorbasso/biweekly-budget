@@ -1,39 +1,33 @@
 <!--
 Sync Impact Report
-Version change: 3.0.0 → 3.1.0 (same-day follow-up to the 3.0.0 amendment below)
-Bump rationale: MINOR — Principle I gains a "hobby app, prefer standard libraries"
-  rule, and Principle VI is simplified to match it (standard extensions instead of
-  hand-built session/throttle machinery; no per-route registry test).
-Earlier in this amendment cycle: 2.0.0 → 3.0.0 (MAJOR) — Principles I and IV previously
-  prohibited public deployment and multi-user accounts; those prohibitions were removed
-  (backward-incompatible redefinition), and a new Principle VI was added.
+Version change: 3.1.0 → 4.0.0
+Bump rationale: MAJOR — the storage baseline in Principles I and IV is redefined from
+  SQLite to Amazon Aurora PostgreSQL Serverless v2 for the deployed app (backward-
+  incompatible with prior guidance that mandated SQLite).
 Modified principles:
-  - I. Simplicity First (YAGNI) — removed the blanket deferral of "public-facing
-    deployment" and "multi-user accounts" (the app is now deployed publicly at
-    https://budget.taylorbasso.dev with multiple accounts and self-registration);
-    baseline is still a single Flask app + SQLite; other speculative extensions remain
-    deferred; the planned Aurora Postgres move is noted as requiring its own amendment
-  - IV. Local-First Data Privacy — replaced "bind only to localhost / never deployed
-    publicly" with: dev server binds to 127.0.0.1 by default; public deployment allowed
-    only behind HTTPS with authentication on every page by default; no third-party data
-    transfer (no telemetry, no outbound email); credentials only as salted slow one-way
-    hashes
-Added sections:
-  - VI. Authentication & Data Isolation (new core principle)
-  - Development Workflow: added rules for tracked migrations covering per-account
-    ownership and for the baseline wording
+  - I. Simplicity First (YAGNI) — baseline is now a single Flask app + PostgreSQL
+    (Aurora Serverless v2 when deployed, a local PostgreSQL for development and tests);
+    still no ORM; the "needs its own amendment" note is removed (this is that amendment)
+  - IV. Local-First Data Privacy — renamed "Data Privacy"; financial data lives only in the
+    application's own PostgreSQL database; the deployed database MUST have no public
+    endpoint, MUST be reachable only from the app's environment, MUST be encrypted at rest
+    and in transit, and its credentials MUST NOT be committed to the repository
+Added sections: none
 Removed sections: none
+Other changes:
+  - Development Workflow: migrations wording no longer refers to a local database file;
+    baseline wording is Flask + PostgreSQL; a PostgreSQL-backed test run is required
+  - Governance: compliance review adds a storage-engine change as a trigger
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ no changes needed (Constitution Check gate
-    reads principles at plan time; still generic)
+  - .specify/templates/plan-template.md ✅ no changes needed (generic Constitution Check)
   - .specify/templates/spec-template.md ✅ no changes needed
   - .specify/templates/tasks-template.md ✅ no changes needed
-  - CLAUDE.md ✅ updated — description and governing-rules bullets match v3.0.0
-  - README.md ✅ updated — localhost note and governing-rules summary match v3.0.0
-  - specs/006-login-authentication/spec.md ✅ already flags this amendment
+  - CLAUDE.md ✅ updated — description, governing rules, source layout comment
+  - README.md ✅ updated — tech stack and governing-rules summary
+  - specs/007-aurora-postgres-migration/spec.md ✅ FR-013 satisfied by this amendment
 Follow-up TODOs:
-  - Moving storage from SQLite to Aurora Postgres will need its own amendment of
-    Principles I and IV (storage baseline) before it is planned.
+  - CLAUDE.md "Commands"/config sections (BUDGET_DB_PATH, dev setup) still describe SQLite
+    behavior until the migration is implemented; update them as part of feature 007.
 -->
 
 <!-- Previous report (2.0.0, 2026-07-28): Version 1.0.0 → 2.0.0; Principle I redefined from
@@ -48,12 +42,13 @@ between one paycheck and the next. -->
 ## Core Principles
 
 ### I. Simplicity First (YAGNI)
-The system MUST be built as a single web application (Flask) backed by a SQLite
-database. The application MAY be deployed publicly and MAY serve multiple accounts, each
+The system MUST be built as a single web application (Flask) backed by a PostgreSQL
+database (Amazon Aurora PostgreSQL Serverless v2 when deployed; a local PostgreSQL for
+development and tests), accessed with a plain driver and SQL — no ORM. The application MAY be deployed publicly and MAY serve multiple accounts, each
 with strictly separate data, under the rules in Principles IV and VI. No additional
 interface (native desktop GUI, mobile app) MAY be introduced until a concrete, stated
-need exists. Moving storage off SQLite (for example to Aurora Postgres) requires its own
-amendment of this principle and Principle IV before it is planned. Every feature MUST
+need exists. Changing the storage engine again requires its own amendment of this
+principle and Principle IV before it is planned. Every feature MUST
 serve the core goal — computing discretionary spending money between pay dates — before
 speculative extensions (multi-currency, recurring-transaction templates, budget
 forecasting, shared/household budgets, etc.) are considered. When in doubt, ship the
@@ -94,9 +89,12 @@ Rationale: this tool exists to answer a money question the user will act on. Sta
 typing catches an entire class of mistakes (wrong types flowing into date/amount math)
 before they can produce a wrong answer.
 
-### IV. Local-First Data Privacy
-Income, expenses, and category data MUST be stored in the application's own SQLite
-database. No financial data MAY be transmitted to any third-party service or network
+### IV. Data Privacy
+Income, expenses, and category data MUST be stored in the application's own PostgreSQL
+database. The deployed database MUST have no public endpoint, MUST accept connections
+only from the application's own environment, and MUST be encrypted at rest and in
+transit. Database credentials MUST be supplied at runtime (environment or secrets store)
+and MUST NOT be committed to the repository. No financial data MAY be transmitted to any third-party service or network
 endpoint without explicit, separate user opt-in for that specific feature. There is no
 default cloud sync, telemetry, outbound email, or external reporting. The development
 server MUST bind to localhost (127.0.0.1) by default. A public deployment is permitted
@@ -105,7 +103,7 @@ only behind HTTPS and only when authentication is required on every page by defa
 hashes — never in plaintext or reversible form, and never in logs or error output.
 
 Rationale: this is personal financial data. The default posture is that it never leaves
-the application's own storage unless a user specifically chooses to send it somewhere.
+the application's own database unless a user specifically chooses to send it somewhere.
 Public reachability is now allowed because the app is deployed that way, but a reachable
 web server exposes every page to the internet, so encryption in transit, mandatory
 authentication, and safe credential storage have to be stated rules, not assumptions.
@@ -159,12 +157,13 @@ becoming a data leak. Using the standard extensions for the mechanics keeps the 
 - Automated tests covering cycle-boundary and leftover-calculation logic MUST pass before
   a change touching that logic is considered done (Principle V).
 - Database schema changes MUST be expressed as migrations tracked in the repository, not
-  as ad-hoc manual edits to a developer's local database file.
+  as ad-hoc manual edits to any database (local or deployed).
+- The automated test suite MUST run against PostgreSQL, the same engine as production.
 - Templates MUST rely on Flask/Jinja2's default auto-escaping for any user-supplied text
   (expense names, categories) rendered in HTML; auto-escaping MUST NOT be disabled to
   work around a formatting problem.
 - New interfaces, dependencies, or stored-data categories that go beyond the Flask +
-  SQLite baseline MUST be justified against Principles I, IV, and VI before being added.
+  PostgreSQL baseline MUST be justified against Principles I, IV, and VI before being added.
 - Schema changes that add or change per-account ownership of data MUST be tracked
   migrations that preserve every existing row, and MUST NOT assign existing data to an
   account other than the one explicitly designated as its owner.
@@ -183,9 +182,9 @@ Report at its top, and bumping the version per the policy below.
 - MINOR: a new principle or section is added, or existing guidance is materially expanded.
 - PATCH: wording, clarification, or typo fixes with no semantic change.
 
-**Compliance review**: any change to core budget-calculation logic, storage, or the
-web/library boundary should be checked against the Core Principles above before being
+**Compliance review**: any change to core budget-calculation logic, storage (including the
+database engine or its network exposure), or the web/library boundary should be checked against the Core Principles above before being
 merged. Complexity that violates Principle I (Simplicity First) must be justified in the
 relevant plan's Complexity Tracking section rather than added silently.
 
-**Version**: 3.1.0 | **Ratified**: 2026-07-28 | **Last Amended**: 2026-10-12
+**Version**: 4.0.0 | **Ratified**: 2026-07-28 | **Last Amended**: 2026-10-12

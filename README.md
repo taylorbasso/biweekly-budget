@@ -39,7 +39,7 @@ Full behavior, edge cases, and a worked example live in
 - Python 3.11+
 - [Flask](https://flask.palletsprojects.com/) — server-rendered pages, no separate
   frontend build
-- SQLite via the standard library `sqlite3` module — no ORM
+- PostgreSQL (Amazon Aurora Serverless v2 when deployed, local PostgreSQL for development and tests) via a plain driver — no ORM
 - Flask-Login, Flask-WTF (CSRF), and Flask-Limiter for sign-in, form protection, and rate
   limiting; Werkzeug scrypt for password hashes
 - `pytest` for tests, `mypy` for static type checking
@@ -89,7 +89,7 @@ tests/                # Unit + integration tests (once implemented)
 
 Development is governed by `.specify/memory/constitution.md`: simplicity first (no
 premature interfaces or dependencies), a clean split between core budget logic and the
-Flask layer, mandatory type checking, data privacy (SQLite only, no telemetry, HTTPS-only
+Flask layer, mandatory type checking, data privacy (PostgreSQL only, private database, no telemetry, HTTPS-only
 public deployment, salted-hash credentials), mandatory authentication with strict
 per-account data isolation, and non-negotiable test coverage for the pay-cycle and
 leftover-calculation math.

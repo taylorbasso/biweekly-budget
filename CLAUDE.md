@@ -2,7 +2,7 @@
 
 Personal budgeting tool: computes how much discretionary money is left in the current
 biweekly pay cycle, plus a per-category spending breakdown for that cycle. Flask web app
-backed by SQLite, deployed publicly at https://budget.taylorbasso.dev; multiple accounts
+backed by PostgreSQL (Aurora Serverless v2 when deployed), deployed publicly at https://budget.taylorbasso.dev; multiple accounts
 with strictly separate data (see feature `006-login-authentication`).
 
 ## Status
@@ -15,7 +15,7 @@ for current progress before assuming any module exists.
 
 `.specify/memory/constitution.md` is authoritative and overrides default instincts here:
 
-- **Simplicity first**: single Flask app + SQLite. No ORM, no frontend build tooling, no
+- **Simplicity first**: single Flask app + PostgreSQL. No ORM, no frontend build tooling, no
   additional interface, until a concrete need exists.
 - **Hobby app, KISS**: this is not a production service. Use the standard, widely used
   Flask solution (Flask-Login, Flask-WTF, Flask-Limiter, Werkzeug password hashing) rather
@@ -26,7 +26,7 @@ for current progress before assuming any module exists.
   module, render a template). No business logic in routes or templates.
 - **Type safety**: type hints on all public functions and data models; `mypy` must pass
   clean before a change is done.
-- **Data privacy**: SQLite only, no telemetry, no outbound email, no data sent to third
+- **Data privacy**: PostgreSQL only (private, encrypted, credentials outside the repo), no telemetry, no outbound email, no data sent to third
   parties. Dev server binds to `127.0.0.1` by default; public deployment only behind
   HTTPS with login required on every page. Passwords only as salted slow one-way hashes.
 - **Authentication & data isolation**: every route requires login unless explicitly
@@ -55,7 +55,7 @@ src/budget/
 ├── models.py         # PaySchedule, RecurringExpense dataclasses + validation
 ├── cycles.py         # pay-date projection, cycle boundary resolution
 ├── calculations.py   # expense-occurrence matching, leftover, category breakdown
-├── db.py              # sqlite3 schema + CRUD (no ORM)
+├── db.py              # PostgreSQL schema + CRUD (no ORM)
 ├── app.py             # Flask app factory
 ├── routes.py          # thin Flask view functions
 └── templates/         # Jinja2 templates
