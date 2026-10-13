@@ -112,7 +112,7 @@ The database cluster, its networking, credentials, and access rules are defined 
 
 - **SC-001**: After cutover, 100% of pre-existing accounts can sign in, and each account's leftover and category breakdown match their pre-cutover values to the cent.
 - **SC-002**: The data transfer verification reports zero count mismatches and zero value discrepancies.
-- **SC-003**: No user-visible change in features; every page loads in under 2 seconds under normal use, including after an idle period.
+- **SC-003**: No user-visible change in features; every page loads in under 2 seconds under normal use; the first request after a long idle period may take up to 30 seconds while the database resumes.
 - **SC-004**: The full automated test suite and type checks pass, including the cross-account isolation tests on every route touching budget data.
 - **SC-005**: The database cannot be reached from the public internet, confirmed by a failed connection attempt from outside the app's environment.
 - **SC-006**: Data survives an app restart or redeploy with no loss, and the operator can restore from an automated backup.
