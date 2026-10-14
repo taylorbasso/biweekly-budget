@@ -65,7 +65,7 @@ data. For production set `BUDGET_SECRET_KEY` (required) and, behind a load balan
 (`./scripts/dev-server.sh` sets it).
 
 The database is PostgreSQL, configured with the standard `PG*` environment variables. Locally:
-`brew install postgresql@16 && brew services start postgresql@16`, then
+`brew install postgresql@18 && brew services start postgresql@18`, then
 `createdb budget_dev && createdb budget_test` (`./scripts/dev-server.sh` uses `budget_dev`;
 tests use `budget_test`).
 

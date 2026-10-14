@@ -84,7 +84,7 @@ account has its own data. Config via environment variables:
 
 Database connection uses libpq's standard `PG*` environment variables (`PGHOST`, `PGPORT`,
 `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGSSLMODE`). Locally: PostgreSQL via
-`brew install postgresql@16 && brew services start postgresql@16`, then
+`brew install postgresql@18 && brew services start postgresql@18`, then
 `createdb budget_dev && createdb budget_test`. `dev-server.sh` uses `budget_dev`;
 `check.sh` and the tests use `budget_test` (tests wipe it). The schema is `src/budget/schema.sql`,
 applied at startup; change it with idempotent statements. Deployed: Aurora PostgreSQL

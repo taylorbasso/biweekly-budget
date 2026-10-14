@@ -3,7 +3,7 @@
 ## Local
 
 ```bash
-brew install postgresql@16 && brew services start postgresql@16
+brew install postgresql@18 && brew services start postgresql@18
 createdb budget_dev && createdb budget_test
 source .venv/bin/activate && pip install -e '.[dev]'
 ./scripts/check.sh               # pytest + mypy, all green

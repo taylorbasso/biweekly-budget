@@ -9,7 +9,7 @@ source .venv/bin/activate
 
 export PGDATABASE="${PGDATABASE:-budget_test}"
 python -c "import psycopg; psycopg.connect('', connect_timeout=3).close()" 2>/dev/null \
-  || { echo "PostgreSQL not reachable (database $PGDATABASE). Start it: brew services start postgresql@16" >&2; exit 1; }
+  || { echo "PostgreSQL not reachable (database $PGDATABASE). Start it: brew services start postgresql@18" >&2; exit 1; }
 
 echo "==> pytest"
 pytest tests/

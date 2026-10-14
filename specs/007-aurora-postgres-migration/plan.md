@@ -2,6 +2,13 @@
 
 **Branch**: `007-aurora-postgres-migration` | **Date**: 2026-10-12 | **Spec**: [spec.md](spec.md)
 
+> **Update (2026-10-13)**: the database was later moved out of this app's stack into a shared
+> cluster, `basso-aurora-postgresql` (Aurora PostgreSQL 18), in `~/code/basso-infra`
+> (`basso-root/us-west-2/aurora-postgresql`). Each app gets its own database and role,
+> created with `tools/create_app_db.py`; this app uses `biweekly_budget` and reads its
+> password from SSM `/biweekly-budget/db-password`. The infrastructure section below describes
+> the original dedicated cluster.
+
 ## Summary
 
 Swap `sqlite3` for PostgreSQL (psycopg 3, plain SQL, no ORM) in `src/budget/db.py`. Deployed, the
@@ -13,7 +20,7 @@ a local PostgreSQL. Business logic modules are untouched.
 ## Technical Context
 
 - **Language**: Python 3.11; add dependency `psycopg[binary]>=3.2`
-- **Storage**: PostgreSQL 17 (Aurora Serverless v2 deployed; local Postgres for dev/tests)
+- **Storage**: PostgreSQL 18 (Aurora Serverless v2 deployed; local Postgres for dev/tests)
 - **Testing**: pytest against a real local Postgres; mypy strict
 - **Target**: ECS Fargate (ARM64) behind an ALB, us-west-2
 - **Constraints**: no ORM; money stays integer cents; DB never public; no secrets in repo
@@ -71,7 +78,7 @@ Tables are otherwise as in the current `db.py` (`users`, `pay_schedule` with `UN
 - DB subnet group from the existing `PrivateSubnet-*` subnets (looked up by Name tag, like the
   public ones already are); no public access.
 - New DB security group: ingress 5432 only from the existing task security group.
-- `aws_rds_cluster`: `aurora-postgresql` 17.x (SSL forced by default), `storage_encrypted`,
+- `aws_rds_cluster`: `aurora-postgresql 18.x (SSL forced by default), `storage_encrypted`,
   `manage_master_user_password = true` (password lives in Secrets Manager, never in state),
   `database_name`/`master_username` = `budget`, no backup configuration (Aurora's 1-day minimum is left as is; it cannot be disabled),
   `skip_final_snapshot = true`, `serverlessv2_scaling_configuration { min_capacity = 0,

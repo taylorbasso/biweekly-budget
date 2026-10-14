@@ -6,7 +6,7 @@ No new tests are written; existing tests are converted to run on PostgreSQL. Inf
 
 ## Phase 1: Setup
 
-- [X] T001 Install and start a local PostgreSQL and create `budget_dev` and `budget_test` databases (`brew install postgresql@16`, `createdb`)
+- [X] T001 Install and start a local PostgreSQL and create `budget_dev` and `budget_test` databases (`brew install postgresql@18`, `createdb`)
 - [X] T002 Add `psycopg[binary]>=3.2` to dependencies in `pyproject.toml` and install it into `.venv`
 
 ## Phase 2: Foundational (application code on PostgreSQL)
