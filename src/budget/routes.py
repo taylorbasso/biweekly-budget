@@ -11,6 +11,7 @@ from budget import db
 from budget.app import get_db
 from budget.auth import login_manager
 from budget.calculations import (
+    account_spendable,
     compute_annual_cost_breakdown,
     compute_breakdown,
     compute_credit_cards,
@@ -94,6 +95,11 @@ def _expense_from_form(expense_id: int | None) -> RecurringExpense:
     )
 
 
+def _dollars_input(cents: int) -> str:
+    """Integer cents as the plain "1234.56" a number input expects."""
+    return f"{cents // 100}.{cents % 100:02d}"
+
+
 def _expense_form_values(expense: RecurringExpense | None) -> dict[str, str | bool]:
     """Field values for expense_form.html, from a saved expense (or blank for a new one)."""
     if expense is None:
@@ -108,7 +114,7 @@ def _expense_form_values(expense: RecurringExpense | None) -> dict[str, str | bo
         }
     return {
         "name": expense.name,
-        "amount": f"{expense.amount // 100}.{expense.amount % 100:02d}",
+        "amount": _dollars_input(expense.amount),
         "recurrence_type": expense.recurrence_type,
         "recurrence_value": str(expense.recurrence_value),
         "recurrence_anchor": (
@@ -214,6 +220,25 @@ def _account_from_form(account_id: int | None) -> Account:
     )
 
 
+def _account_form_values(account: Account | None) -> dict[str, str]:
+    """Field values for account_form.html, from a saved account (or blank for a new one)."""
+    if account is None:
+        return {"name": "", "balance": "", "penalty_tax_percent": "0"}
+    return {
+        "name": account.name,
+        "balance": _dollars_input(account.balance),
+        "penalty_tax_percent": str(account.penalty_tax_percent),
+    }
+
+
+def _account_form_values_from_request() -> dict[str, str]:
+    """What the user just submitted, so a rejected form comes back as they typed it."""
+    return {
+        field: request.form.get(field, "")
+        for field in ("name", "balance", "penalty_tax_percent")
+    }
+
+
 @bp.route("/runway")
 def runway() -> str:
     conn = get_db()
@@ -225,22 +250,26 @@ def runway() -> str:
         for expense in expenses
         if expense.essential
     ]
+    account_rows = [(account, round(account_spendable(account))) for account in accounts]
     total_account_balance = sum((account.balance for account in accounts), 0)
-    total_monthly_burn = round(result.monthly_essential_burn)
     return render_template(
         "runway.html",
         essential_rows=essential_rows,
-        accounts=accounts,
+        account_rows=account_rows,
         result=result,
         total_account_balance=total_account_balance,
-        total_monthly_burn=total_monthly_burn,
+        total_spendable=round(result.total_spendable),
+        total_monthly_burn=round(result.monthly_essential_burn),
     )
 
 
 @bp.route("/runway/accounts/new", methods=["GET"])
 def account_new() -> str:
     return render_template(
-        "account_form.html", account=None, error=None, action="/runway/accounts"
+        "account_form.html",
+        values=_account_form_values(None),
+        error=None,
+        action="/runway/accounts",
     )
 
 
@@ -252,7 +281,7 @@ def account_create() -> ResponseReturnValue:
         return (
             render_template(
                 "account_form.html",
-                account=None,
+                values=_account_form_values_from_request(),
                 error=str(exc),
                 action="/runway/accounts",
             ),
@@ -271,7 +300,7 @@ def account_edit(account_id: int) -> str:
         abort(404)
     return render_template(
         "account_form.html",
-        account=account,
+        values=_account_form_values(account),
         error=None,
         action=f"/runway/accounts/{account_id}/edit",
     )
@@ -288,7 +317,7 @@ def account_update(account_id: int) -> ResponseReturnValue:
         return (
             render_template(
                 "account_form.html",
-                account=None,
+                values=_account_form_values_from_request(),
                 error=str(exc),
                 action=f"/runway/accounts/{account_id}/edit",
             ),

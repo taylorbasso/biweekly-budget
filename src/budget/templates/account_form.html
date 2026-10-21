@@ -1,7 +1,8 @@
 {% extends "layout.html" %}
-{% block title %}{{ "Edit" if account else "Add" }} Account — Biweekly Budget{% endblock %}
+{% set editing = action != "/runway/accounts" %}
+{% block title %}{{ "Edit" if editing else "Add" }} Account — Biweekly Budget{% endblock %}
 {% block content %}
-<h1>{{ "Edit" if account else "Add" }} Account</h1>
+<h1>{{ "Edit" if editing else "Add" }} Account</h1>
 
 {% if error %}
   <p class="error">{{ error }}</p>
@@ -11,18 +12,25 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Name
-    <input type="text" name="name" value="{{ account.name if account else '' }}" required>
+    <input type="text" name="name" placeholder="e.g. Savings" value="{{ values.name }}" required>
   </label>
   <label>
-    Balance (dollars)
-    <input type="number" step="0.01" min="0" name="balance"
-           value="{{ '%.2f'|format(account.balance / 100) if account else '' }}" required>
+    Balance
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="balance"
+             value="{{ values.balance }}" required>
+    </span>
   </label>
   <label>
-    Penalty/Tax % (optional, 0-100)
-    <input type="number" min="0" max="100" name="penalty_tax_percent"
-           value="{{ account.penalty_tax_percent if account else 0 }}">
+    Early-withdrawal penalty / tax (%)
+    <span class="hint">Share you'd lose by cashing it out now, e.g. 10–30% for a 401(k). Leave 0 for cash.</span>
+    <input type="number" min="0" max="100" inputmode="numeric" name="penalty_tax_percent"
+           value="{{ values.penalty_tax_percent }}">
   </label>
-  <button type="submit">Save</button>
+  <div class="form-actions">
+    <button type="submit">{{ "Save changes" if editing else "Add account" }}</button>
+    <a href="/runway">Cancel</a>
+  </div>
 </form>
 {% endblock %}

@@ -370,25 +370,42 @@ def test_annual_cost_breakdown_empty_expense_list_yields_zero_total() -> None:
     assert breakdown.grand_total == 0
 
 
-def test_annual_cost_breakdown_groups_by_category_alphabetically() -> None:
+def test_annual_cost_breakdown_orders_categories_by_subtotal_descending() -> None:
     expenses = [
-        _expense("Rent", 120_000, "day_of_month", 1, category="Housing", expense_id=1),
-        _expense(
-            "Investment transfer",
-            10_000,
-            "day_of_week",
-            4,
-            category="Investments",
-            expense_id=2,
-        ),
+        _expense("Coffee", 500, "day_of_week", 1, category="Antiques", expense_id=1),
+        _expense("Rent", 120_000, "day_of_month", 1, category="Zoning", expense_id=2),
         _expense("Streaming", 1_500, "day_of_month", 31, expense_id=3),
     ]
     breakdown = compute_annual_cost_breakdown(expenses)
+    # Zoning 1,440,000 > Antiques 26,000 > Uncategorized 18,000 (not alphabetical)
     assert [category.category for category in breakdown.categories] == [
-        "Housing",
-        "Investments",
+        "Zoning",
+        "Antiques",
         UNCATEGORIZED,
     ]
+
+
+def test_annual_cost_breakdown_equal_subtotals_order_by_category_name() -> None:
+    expenses = [
+        _expense("B", 1_000, "day_of_month", 1, category="Beta", expense_id=1),
+        _expense("A", 1_000, "day_of_month", 1, category="Alpha", expense_id=2),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    assert [category.category for category in breakdown.categories] == ["Alpha", "Beta"]
+
+
+def test_annual_cost_breakdown_monthly_total_is_grand_total_over_twelve() -> None:
+    # $79.99 monthly + $150 weekly = 95,988 + 780,000 = 875,988 cents/yr -> 72,999 /mo
+    expenses = [
+        _expense("Internet", 7_999, "day_of_month", 22, category="Utilities", expense_id=1),
+        _expense("Groceries", 15_000, "day_of_week", 5, category="Food", expense_id=2),
+    ]
+    breakdown = compute_annual_cost_breakdown(expenses)
+    assert breakdown.monthly_total == 72_999
+
+
+def test_annual_cost_breakdown_empty_list_has_zero_monthly_total() -> None:
+    assert compute_annual_cost_breakdown([]).monthly_total == 0
 
 
 def test_annual_cost_breakdown_sorts_within_category_by_annual_cost_descending() -> None:

@@ -1,4 +1,5 @@
 {% extends "layout.html" %}
+{% from "_macros.html" import recurrence %}
 {% block title %}Expenses — Biweekly Budget{% endblock %}
 {% block content %}
 <div class="page-header">
@@ -8,11 +9,11 @@
 
 {% if groups %}
   <div class="table-scroll">
-  <table class="expenses-table">
+  <table class="grouped-table expenses-table card-table">
     <thead>
       <tr>
         <th>Name</th>
-        <th>Amount</th>
+        <th class="num">Amount</th>
         <th>Recurrence</th>
         <th></th>
       </tr>
@@ -21,24 +22,16 @@
     <tbody>
       <tr class="category-row">
         <th colspan="2" scope="rowgroup">{{ group.category }}</th>
-        <td colspan="2" class="category-total">${{ group.monthly_total | usd }}/mo</td>
+        <td colspan="2" class="category-total num">${{ group.monthly_total | usd }}/mo</td>
       </tr>
       {% for expense in group.expenses %}
       <tr>
-        <td class="expense-name">
+        <td class="card-title">
           {{ expense.name }}
           {% if expense.essential %}<span class="tag">Essential</span>{% endif %}
         </td>
-        <td class="expense-amount">${{ expense.amount | usd }}</td>
-        <td class="expense-recurrence">
-          {% if expense.recurrence_type == "day_of_month" %}
-            Day {{ expense.recurrence_value }} of month
-          {% elif expense.recurrence_type == "day_of_week" %}
-            {{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][expense.recurrence_value] }}
-          {% else %}
-            Every 2 weeks from {{ expense.recurrence_anchor.strftime("%b %d") }}
-          {% endif %}
-        </td>
+        <td class="card-amount num">${{ expense.amount | usd }}</td>
+        <td class="card-detail">{{ recurrence(expense) }}</td>
         <td class="expense-actions">
           <a class="btn-edit" href="/expenses/{{ expense.id }}/edit" aria-label="Edit {{ expense.name }}" title="Edit"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></a>
           <form method="post" action="/expenses/{{ expense.id }}/delete">

@@ -2,34 +2,52 @@
 {% block title %}Annual Cost — Biweekly Budget{% endblock %}
 {% block content %}
 <h1>Annual Cost</h1>
+<p class="headline-total">
+  <strong>${{ breakdown.grand_total | usd }}</strong> per year · ${{ breakdown.monthly_total | usd }}/mo
+</p>
 
 {% if breakdown.categories %}
-  {% for category in breakdown.categories %}
-    <h2>{{ category.category }} — ${{ category.subtotal | usd }} ({{ "%.1f"|format(category.percent_of_total) }}%)</h2>
-    <div class="table-scroll">
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Annual Cost</th>
-          <th>% of Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in category.items %}
-        <tr>
-          <td>{{ item.name }}</td>
-          <td>${{ item.annual_cost | usd }}</td>
-          <td>{{ "%.1f"|format(item.percent_of_total) }}%</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  {% endfor %}
-  <p><strong>Grand total: ${{ breakdown.grand_total | usd }}</strong></p>
+  <div class="table-scroll">
+  <table class="grouped-table annual-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th class="num">Annual cost</th>
+        <th class="num">% of total</th>
+      </tr>
+    </thead>
+    {% for category in breakdown.categories %}
+    <tbody>
+      <tr class="category-row">
+        <th scope="rowgroup">{{ category.category }}</th>
+        <td class="num">${{ category.subtotal | usd }}</td>
+        <td class="num">
+          <span class="pct-bar" aria-hidden="true"><span style="width: {{ '%.1f'|format(category.percent_of_total) }}%"></span></span>
+          <span class="pct-value">{{ "%.1f"|format(category.percent_of_total) }}%</span>
+        </td>
+      </tr>
+      {% for item in category.items %}
+      <tr>
+        <td>{{ item.name }}</td>
+        <td class="num">${{ item.annual_cost | usd }}</td>
+        <td class="num">
+          <span class="pct-bar" aria-hidden="true"><span style="width: {{ '%.1f'|format(item.percent_of_total) }}%"></span></span>
+          <span class="pct-value">{{ "%.1f"|format(item.percent_of_total) }}%</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    {% endfor %}
+    <tfoot>
+      <tr>
+        <th>Grand total</th>
+        <th class="num">${{ breakdown.grand_total | usd }}</th>
+        <th class="num">100.0%</th>
+      </tr>
+    </tfoot>
+  </table>
+  </div>
 {% else %}
   <p>No expenses recorded.</p>
-  <p><strong>Grand total: ${{ breakdown.grand_total | usd }}</strong></p>
 {% endif %}
 {% endblock %}

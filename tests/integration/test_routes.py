@@ -171,6 +171,7 @@ def test_annual_cost_page_shows_each_expenses_annual_cost(
     assert "Streaming" in body
     assert "$180.00" in body
     assert "$19,780.00" in body or "$19780.00" in body
+    assert "$1,648.33/mo" in body
 
 
 def test_annual_cost_page_empty_state_shows_zero_grand_total(
@@ -454,7 +455,7 @@ def test_runway_essential_expenses_table_shows_frequency_and_total(
     body = client.get("/runway").get_data(as_text=True)
 
     assert "Rent" in body
-    assert "Monthly (day 1)" in body
+    assert "Monthly, day 1" in body
     assert "Total (monthly)" in body
     assert "$2,000.00" in body or "$2000.00" in body
 
@@ -466,6 +467,48 @@ def test_runway_accounts_table_shows_total(app, client: FlaskClient) -> None:
     body = client.get("/runway").get_data(as_text=True)
 
     assert "$12,000.00" in body or "$12000.00" in body
+
+
+def test_runway_shows_spendable_after_penalty_and_uses_it_for_headline(
+    app, client: FlaskClient
+) -> None:
+    _seed_expense(app, "Rent", 100_000, "day_of_month", 1, essential=True)
+    _seed_account(app, "Cash", 200_000, 0)
+    _seed_account(app, "401k", 1_000_000, 30)
+
+    body = client.get("/runway").get_data(as_text=True)
+
+    # 401k spendable = $10,000 - 30% = $7,000; total spendable = $9,000
+    assert "$7,000.00" in body
+    assert "$9,000.00 spendable ÷ $1,000.00/mo essentials" in body
+    assert "9.00 months" in body
+
+
+def test_account_edit_error_stays_in_edit_mode_with_submitted_values(
+    app, client: FlaskClient
+) -> None:
+    account_id = _seed_account(app, "Cash", 100_000, 0)
+
+    response = client.post(
+        f"/runway/accounts/{account_id}/edit",
+        data={"name": "Cash (joint)", "balance": "-5.00", "penalty_tax_percent": "0"},
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert "Edit Account" in body
+    assert "Save changes</button>" in body
+    assert 'value="Cash (joint)"' in body
+    assert 'value="-5.00"' in body
+
+
+def test_account_edit_form_prefills_balance_with_cents(app, client: FlaskClient) -> None:
+    account_id = _seed_account(app, "Cash", 123_405, 15)
+
+    body = client.get(f"/runway/accounts/{account_id}/edit").get_data(as_text=True)
+
+    assert 'value="1234.05"' in body
+    assert 'value="15"' in body
 
 
 def test_credit_cards_empty_state(app, client: FlaskClient) -> None:

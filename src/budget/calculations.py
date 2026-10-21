@@ -62,8 +62,9 @@ class CategoryAnnualCost:
 
 @dataclass(frozen=True)
 class AnnualCostBreakdown:
-    categories: list[CategoryAnnualCost]
+    categories: list[CategoryAnnualCost]  # largest subtotal first
     grand_total: int
+    monthly_total: int  # grand_total / 12 in integer cents, rounded once
 
 
 def _months_spanning(start: date, end: date) -> list[tuple[int, int]]:
@@ -255,7 +256,7 @@ def compute_annual_cost_breakdown(
         )
 
     categories = []
-    for category in sorted(by_category):
+    for category in by_category:
         items = sorted(
             by_category[category], key=lambda item: (-item.annual_cost, item.name)
         )
@@ -269,7 +270,12 @@ def compute_annual_cost_breakdown(
             )
         )
 
-    return AnnualCostBreakdown(categories=categories, grand_total=grand_total)
+    categories.sort(key=lambda group: (-group.subtotal, group.category))
+    return AnnualCostBreakdown(
+        categories=categories,
+        grand_total=grand_total,
+        monthly_total=round(Fraction(grand_total, 12)),
+    )
 
 
 @dataclass(frozen=True)

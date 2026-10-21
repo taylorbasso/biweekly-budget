@@ -1,0 +1,10 @@
+{# How often an expense repeats, worded the same everywhere it's shown. #}
+{% macro recurrence(expense) -%}
+  {%- if expense.recurrence_type == "day_of_month" -%}
+    Monthly, day {{ expense.recurrence_value }}
+  {%- elif expense.recurrence_type == "day_of_week" -%}
+    Weekly, {{ ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][expense.recurrence_value] }}
+  {%- else -%}
+    Every 2 weeks from {{ expense.recurrence_anchor.strftime("%b %d") }}
+  {%- endif -%}
+{%- endmacro %}
