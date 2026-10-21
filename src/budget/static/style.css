@@ -61,6 +61,46 @@ nav a:hover {
   color: var(--text);
 }
 
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+/* ASCII art (nav "BB" logo, login banner): a font with a true fixed-width
+   advance so the art lines up on every platform. */
+.nav-logo pre,
+.login-banner {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+nav a.nav-logo {
+  padding: 0;
+  margin-right: 12px;
+}
+
+nav a.nav-logo:hover {
+  background: none;
+  opacity: 0.8;
+}
+
+.nav-logo pre {
+  font-size: 9px;
+  line-height: 1.05;
+}
+
+/* 50 columns wide; shrink with the viewport (monospace glyphs are ~0.6em wide)
+   so it never overflows a phone, capped at 13px on wider screens. */
+.login-banner {
+  width: fit-content;
+  margin: 0 auto 28px;
+  font-size: min(13px, calc((100vw - 32px) / 32));
+  line-height: 1.15;
+}
+
 main {
   max-width: 720px;
   margin: 0 auto;
@@ -373,23 +413,33 @@ nav .signed-in-as {
   font-size: 0.9rem;
 }
 
-/* Phones: 16px gutters, account/sign-out on its own row above the wrapped links,
-   and nothing wider than the screen. */
+nav form.signout button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Phones: 16px gutters, logo and account/sign-out sharing the top row with the
+   links wrapped below, and nothing wider than the screen. */
 @media (max-width: 640px) {
   nav {
     padding: 8px 16px;
-    gap: 2px;
+    row-gap: 6px;
   }
 
   nav a {
     padding: 6px 10px;
   }
 
-  nav form.signout {
-    order: -1;
+  .nav-links {
+    order: 1;
     width: 100%;
-    margin: 0 0 4px;
-    justify-content: space-between;
+    gap: 2px;
+  }
+
+  nav form.signout {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-end;
   }
 
   nav .signed-in-as {

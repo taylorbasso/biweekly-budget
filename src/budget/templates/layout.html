@@ -9,12 +9,18 @@
 <body>
   {% if current_user.is_authenticated %}
   <nav>
-    <a href="/">Leftover</a>
-    <a href="/pay-schedule">Pay Schedule</a>
-    <a href="/expenses">Expenses</a>
-    <a href="/annual-cost">Annual Cost</a>
-    <a href="/runway">Runway</a>
-    <a href="/credit-cards">Credit Cards</a>
+    <a class="nav-logo" href="/" aria-label="Biweekly Budget home"><pre aria-hidden="true">   ___  ___
+  / _ )/ _ )
+ / _  / _  |
+/____/____/</pre></a>
+    <div class="nav-links">
+      <a href="/">Leftover</a>
+      <a href="/pay-schedule">Pay Schedule</a>
+      <a href="/expenses">Expenses</a>
+      <a href="/annual-cost">Annual Cost</a>
+      <a href="/runway">Runway</a>
+      <a href="/credit-cards">Credit Cards</a>
+    </div>
     <form class="signout" method="post" action="{{ url_for('auth.logout') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <span class="signed-in-as">{{ current_user.email }}</span>

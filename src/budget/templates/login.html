@@ -1,6 +1,16 @@
 {% extends "layout.html" %}
 {% block title %}Sign in - Biweekly Budget{% endblock %}
 {% block content %}
+<pre class="login-banner" role="img" aria-label="Biweekly Budget">    ____  _____       ________________ __ ____  __
+   / __ )/  _/ |     / / ____/ ____/ //_// /\ \/ /
+  / __  |/ / | | /| / / __/ / __/ / ,&lt;  / /  \  /
+ / /_/ // /  | |/ |/ / /___/ /___/ /| |/ /___/ /
+/_____/___/  |__/|__/_____/_____/_/ |_/_____/_/
+         ____  __  ______  __________________
+        / __ )/ / / / __ \/ ____/ ____/_  __/
+       / __  / / / / / / / / __/ __/   / /
+      / /_/ / /_/ / /_/ / /_/ / /___  / /
+     /_____/\____/_____/\____/_____/ /_/</pre>
 <h1>Sign in</h1>
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 <form method="post" action="{{ url_for('auth.login') }}">
