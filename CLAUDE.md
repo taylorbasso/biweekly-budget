@@ -130,6 +130,10 @@ confusing 403 instead of connection-refused.
 - When testing a UI/route change in a browser, use the chrome-devtools MCP tools
   (navigate, snapshot, click, fill) against the running dev server — not `curl`. Close
   the page (`mcp__chrome-devtools__close_page`) once done testing — don't leave it open.
+- Sign in for browser testing with the local test account `mobile-test@example.com` /
+  `mobiletest123`, rather than registering a new one. It exists only in the local `budget_dev`
+  database and has sample data: a pay schedule, expenses using all three recurrence types,
+  Runway accounts, and credit cards/loans. Keep it; don't delete it.
 - Only one dev server should ever be running at a time, on port 5001. Use
   `./scripts/dev-server.sh {start|stop|restart|status}` for all of it rather than manual
   `ps`/`kill`/`flask run` — it finds whatever's already on the port (even if started
