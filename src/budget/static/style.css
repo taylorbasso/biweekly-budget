@@ -39,6 +39,8 @@ body {
 
 nav {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 4px;
   padding: 12px 24px;
   background: var(--surface);
@@ -51,6 +53,7 @@ nav a {
   color: var(--muted);
   text-decoration: none;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 nav a:hover {
@@ -119,13 +122,18 @@ ul li:last-child {
   border-bottom: none;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Wide tables (e.g. Credit Cards' nine columns) scroll sideways inside this box on
+   narrow screens instead of widening the whole page. */
+.table-scroll {
+  overflow-x: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
 th, td {
@@ -158,13 +166,16 @@ form {
 }
 
 .expense-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  text-align: right;
+  white-space: nowrap;
 }
 
-.expense-actions form {
+.expense-actions .btn-edit {
+  margin-right: 8px;
+}
+
+.expense-actions form,
+.expense-essential form {
   display: contents;
 }
 
@@ -360,4 +371,121 @@ nav form.signout {
 nav .signed-in-as {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+/* Phones: 16px gutters, account/sign-out on its own row above the wrapped links,
+   and nothing wider than the screen. */
+@media (max-width: 640px) {
+  nav {
+    padding: 8px 16px;
+    gap: 2px;
+  }
+
+  nav a {
+    padding: 6px 10px;
+  }
+
+  nav form.signout {
+    order: -1;
+    width: 100%;
+    margin: 0 0 4px;
+    justify-content: space-between;
+  }
+
+  nav .signed-in-as {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  main {
+    padding: 20px 16px 48px;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  th, td {
+    padding: 8px 10px;
+  }
+
+  /* Keep the row's name visible while a wide table is scrolled sideways. */
+  .table-scroll table:not(.expenses-table) tr > :first-child:not([colspan]) {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    box-shadow: inset -1px 0 0 var(--border);
+  }
+
+  .cycle-select-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .cycle-select-form select {
+    min-width: 0;
+  }
+
+  .chart-container {
+    justify-content: center;
+  }
+
+  /* Expenses: each row becomes a small card (name + amount, recurrence, then the
+     essential toggle and Edit/Remove) so the actions stay on screen. */
+  .expenses-table thead {
+    display: none;
+  }
+
+  .expenses-table tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .expenses-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .expenses-table td {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .expense-name,
+  .expense-amount {
+    font-weight: 600;
+  }
+
+  .expense-amount {
+    text-align: right;
+  }
+
+  .expense-recurrence {
+    grid-column: 1 / -1;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .expense-essential {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .expense-essential::after {
+    content: "Essential";
+  }
+
+  .expenses-table .expense-actions {
+    margin-top: 10px;
+  }
 }

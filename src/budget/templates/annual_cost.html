@@ -6,6 +6,7 @@
 {% if breakdown.categories %}
   {% for category in breakdown.categories %}
     <h2>{{ category.category }} — ${{ category.subtotal | usd }} ({{ "%.1f"|format(category.percent_of_total) }}%)</h2>
+    <div class="table-scroll">
     <table>
       <thead>
         <tr>
@@ -24,6 +25,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   {% endfor %}
   <p><strong>Grand total: ${{ breakdown.grand_total | usd }}</strong></p>
 {% else %}

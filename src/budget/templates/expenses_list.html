@@ -9,7 +9,8 @@
     <h2>{{ section_label }}</h2>
     {% for category, category_expenses in groups %}
       <h3>{{ category }}</h3>
-      <table>
+      <div class="table-scroll">
+      <table class="expenses-table">
         <thead>
           <tr>
             <th>Name</th>
@@ -22,9 +23,9 @@
         <tbody>
           {% for expense in category_expenses %}
           <tr>
-            <td>{{ expense.name }}</td>
-            <td>${{ expense.amount | usd }}</td>
-            <td>
+            <td class="expense-name">{{ expense.name }}</td>
+            <td class="expense-amount">${{ expense.amount | usd }}</td>
+            <td class="expense-recurrence">
               {% if expense.recurrence_type == "day_of_month" %}
                 Day {{ expense.recurrence_value }} of month
               {% elif expense.recurrence_type == "day_of_week" %}
@@ -33,10 +34,10 @@
                 Every 14 days from {{ expense.recurrence_anchor.isoformat() }}
               {% endif %}
             </td>
-            <td>
+            <td class="expense-essential">
               <form method="post" action="/expenses/{{ expense.id }}/toggle-essential">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="checkbox" class="essential-toggle" {% if expense.essential %}checked{% endif %}>
+                <input type="checkbox" class="essential-toggle" aria-label="Essential" {% if expense.essential %}checked{% endif %}>
               </form>
             </td>
             <td class="expense-actions">
@@ -50,6 +51,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     {% endfor %}
   {% endfor %}
 {% else %}
