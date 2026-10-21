@@ -165,7 +165,6 @@ def leftover() -> str:
         result=result,
         chart=chart,
         category_items=breakdown.items,
-        today=reference_date,
         cycle_options=cycle_options,
         selected_start=cycle.start_date,
     )

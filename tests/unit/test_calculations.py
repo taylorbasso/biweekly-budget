@@ -462,6 +462,8 @@ def test_remaining_expenses_excludes_only_strictly_past_due_occurrences() -> Non
     assert result.total_expenses == 60_000
     # "Due today" and "Upcoming" remain; "Past due" (July 31) is excluded.
     assert result.remaining_expenses == 50_000
+    assert [o.name for o in result.upcoming] == ["Due today", "Upcoming"]
+    assert [o.name for o in result.earlier] == ["Past due"]
 
 
 def test_monthly_equivalent_day_of_month_equals_amount() -> None:

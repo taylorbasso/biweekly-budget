@@ -1,13 +1,13 @@
 {% extends "layout.html" %}
 {% block title %}Leftover — Biweekly Budget{% endblock %}
 {% block content %}
-<h1>Leftover this cycle</h1>
+<h1>Leftover</h1>
 
 {% if pay_schedule is none %}
   <p>No pay schedule recorded yet. <a href="/pay-schedule">Set up your pay schedule</a> to get started.</p>
 {% else %}
   <form method="get" action="{{ url_for('budget.leftover') }}" class="cycle-select-form">
-    <label for="cycle-select">Cycle:</label>
+    <label for="cycle-select">Pay cycle</label>
     <select id="cycle-select" name="date" onchange="this.form.submit()">
       {% for opt in cycle_options %}
         <option value="{{ opt.start_date.isoformat() }}" {% if opt.start_date == selected_start %}selected{% endif %}>
@@ -17,10 +17,18 @@
     </select>
     <noscript><button type="submit">Go</button></noscript>
   </form>
-  <p>Pay amount: ${{ result.pay_amount | usd }}</p>
-  <p>Total expenses this pay period: ${{ result.total_expenses | usd }}</p>
-  <p>Remaining expenses this pay period: ${{ result.remaining_expenses | usd }}</p>
-  <p><strong>Leftover: ${{ result.leftover_amount | usd }}</strong></p>
+  {% if result.leftover_amount >= 0 %}
+  <p class="headline-total">
+    <strong>${{ result.leftover_amount | usd }}</strong> left to spend until your {{ result.cycle.next_pay_date.strftime("%b %d") }} payday
+  {% else %}
+  <p class="headline-total headline-negative">
+    <strong>−${{ (-result.leftover_amount) | usd }}</strong> over budget before your {{ result.cycle.next_pay_date.strftime("%b %d") }} payday
+  {% endif %}
+    <span class="headline-detail">
+      ${{ result.pay_amount | usd }} pay − ${{ result.total_expenses | usd }} expenses
+      {%- if result.remaining_expenses %} · ${{ result.remaining_expenses | usd }} still to come{% endif %}
+    </span>
+  </p>
 
   {% if chart.slices %}
     <div class="chart-container">
@@ -84,16 +92,41 @@
     {% endif %}
   {% endif %}
 
-  <h2>Expenses due this cycle</h2>
+  <h2>Expenses this cycle</h2>
   {% if result.occurrences %}
-    <ul>
-      {% for occurrence in result.occurrences %}
-        <li class="{{ 'expense-past-due' if occurrence.due_date < today else '' }}">
-          {{ occurrence.due_date.isoformat() }} — {{ occurrence.name }}
-          (${{ occurrence.amount | usd }}, {{ occurrence.category }})
-        </li>
+    <div class="table-scroll">
+    <table class="grouped-table card-table occurrences-table">
+      <thead>
+        <tr>
+          <th>Due</th>
+          <th>Name</th>
+          <th class="hide-phone">Category</th>
+          <th class="num">Amount</th>
+        </tr>
+      </thead>
+      {% for heading, group, total, muted in [
+        ("Coming up", result.upcoming, result.remaining_expenses, False),
+        ("Earlier this cycle", result.earlier, result.total_expenses - result.remaining_expenses, True),
+      ] if group %}
+      <tbody class="{{ 'occurrences-earlier' if muted else '' }}">
+        <tr class="category-row">
+          <th colspan="3" scope="rowgroup">{{ heading }}</th>
+          <td class="category-total num">${{ total | usd }}</td>
+        </tr>
+        {% for occurrence in group %}
+        <tr>
+          <td class="card-detail nowrap">
+            {{ occurrence.due_date.strftime("%b %d") }}<span class="show-phone"> · {{ occurrence.category }}</span>
+          </td>
+          <td class="card-title">{{ occurrence.name }}</td>
+          <td class="hide-phone">{{ occurrence.category }}</td>
+          <td class="card-amount num">${{ occurrence.amount | usd }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
       {% endfor %}
-    </ul>
+    </table>
+    </div>
   {% else %}
     <p>No expenses due this cycle.</p>
   {% endif %}

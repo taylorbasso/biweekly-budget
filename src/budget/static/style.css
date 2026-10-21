@@ -346,6 +346,14 @@ form {
 
   .annual-table th:nth-child(2) { width: 150px; }
   .annual-table th:nth-child(3) { width: 170px; }
+
+  .occurrences-table {
+    table-layout: fixed;
+  }
+
+  .occurrences-table th:nth-child(1) { width: 100px; }
+  .occurrences-table th:nth-child(3) { width: 180px; }
+  .occurrences-table th:nth-child(4) { width: 130px; }
 }
 
 /* One-line description under a page title. */
@@ -368,6 +376,20 @@ h1 + .headline-total {
   display: block;
   margin-top: 2px;
   font-size: 0.9rem;
+}
+
+.headline-negative strong {
+  color: var(--error);
+}
+
+/* Leftover: expenses already past their due date this cycle, de-emphasized. */
+.occurrences-earlier td {
+  color: var(--muted);
+}
+
+/* Extra text only needed when a column is hidden on phones. */
+.show-phone {
+  display: none;
 }
 
 /* Neutral callout, e.g. "nothing to calculate yet" messages. */
@@ -452,6 +474,11 @@ label .hint {
 .input-suffix input {
   width: 100%;
   padding-right: 28px;
+}
+
+/* Text right after a form box, e.g. "No account? Register". */
+form + p {
+  margin-top: 16px;
 }
 
 .form-actions {
@@ -836,6 +863,24 @@ nav form.signout button:hover {
   /* Secondary columns dropped on phones so the key ones fit without scrolling. */
   .hide-phone {
     display: none;
+  }
+
+  .show-phone {
+    display: inline;
+  }
+
+  /* Pie on top, legend underneath. */
+  .chart-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chart-container .cycle-chart {
+    align-self: center;
+  }
+
+  .chart-legend {
+    min-width: 0;
   }
 
   /* No room beside the percentages on phones; the numbers carry it alone. */

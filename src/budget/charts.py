@@ -16,7 +16,8 @@ PALETTE: tuple[str, ...] = (
     "#ca8a04",
     "#db2777",
 )
-LEFTOVER_COLOR = "#10b981"
+# Neutral, so unspent money reads as "not a category" next to the colored slices.
+LEFTOVER_COLOR = "#94a3b8"
 LEFTOVER_LABEL = "Leftover"
 
 
@@ -63,9 +64,10 @@ def build_chart(
     overspent_amount = -leftover_amount if overspent else 0
     denominator = total_expenses if overspent else pay_amount
 
+    # Biggest slice first (ties by name); leftover always last.
     entries: list[tuple[str, int]] = sorted(
         ((label, amount) for label, amount in totals if amount > 0),
-        key=lambda item: item[0],
+        key=lambda item: (-item[1], item[0]),
     )
     if not overspent and leftover_amount > 0:
         entries.append((LEFTOVER_LABEL, leftover_amount))
@@ -73,7 +75,8 @@ def build_chart(
     if not entries:
         return CycleChart(slices=[], overspent=overspent, overspent_amount=overspent_amount)
 
-    category_labels = [label for label, _ in entries if label != LEFTOVER_LABEL]
+    # Colors go by name, not position, so a category keeps its color across cycles.
+    category_labels = sorted(label for label, _ in entries if label != LEFTOVER_LABEL)
     colors = {label: PALETTE[i % len(PALETTE)] for i, label in enumerate(category_labels)}
     colors[LEFTOVER_LABEL] = LEFTOVER_COLOR
 

@@ -34,7 +34,9 @@ class LeftoverResult:
     occurrences: list[ExpenseOccurrence]
     total_expenses: int
     leftover_amount: int
-    remaining_expenses: int
+    remaining_expenses: int  # sum of upcoming
+    upcoming: list[ExpenseOccurrence]  # due on or after the reference date
+    earlier: list[ExpenseOccurrence]  # due before the reference date
 
 
 @dataclass(frozen=True)
@@ -162,18 +164,17 @@ def compute_leftover(
     reference_date: date,
 ) -> LeftoverResult:
     total_expenses = sum(occurrence.amount for occurrence in occurrences)
-    remaining_expenses = sum(
-        occurrence.amount
-        for occurrence in occurrences
-        if occurrence.due_date >= reference_date
-    )
+    upcoming = [o for o in occurrences if o.due_date >= reference_date]
+    earlier = [o for o in occurrences if o.due_date < reference_date]
     return LeftoverResult(
         cycle=cycle,
         pay_amount=pay_schedule.amount,
         occurrences=occurrences,
         total_expenses=total_expenses,
         leftover_amount=pay_schedule.amount - total_expenses,
-        remaining_expenses=remaining_expenses,
+        remaining_expenses=sum(occurrence.amount for occurrence in upcoming),
+        upcoming=upcoming,
+        earlier=earlier,
     )
 
 

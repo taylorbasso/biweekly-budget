@@ -8,3 +8,17 @@
     Every 2 weeks from {{ expense.recurrence_anchor.strftime("%b %d") }}
   {%- endif -%}
 {%- endmacro %}
+
+{# The BIWEEKLY BUDGET banner on the signed-out pages (Sign in, Register). #}
+{% macro ascii_banner() -%}
+<pre class="login-banner" role="img" aria-label="Biweekly Budget">    ____  _____       ________________ __ ____  __
+   / __ )/  _/ |     / / ____/ ____/ //_// /\ \/ /
+  / __  |/ / | | /| / / __/ / __/ / ,&lt;  / /  \  /
+ / /_/ // /  | |/ |/ / /___/ /___/ /| |/ /___/ /
+/_____/___/  |__/|__/_____/_____/_/ |_/_____/_/
+         ____  __  ______  __________________
+        / __ )/ / / / __ \/ ____/ ____/_  __/
+       / __  / / / / / / / / __/ __/   / /
+      / /_/ / /_/ / /_/ / /_/ / /___  / /
+     /_____/\____/_____/\____/_____/ /_/</pre>
+{%- endmacro %}

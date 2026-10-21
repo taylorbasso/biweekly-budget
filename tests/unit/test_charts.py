@@ -87,6 +87,21 @@ def test_colors_are_deterministic_and_categories_sorted_by_name() -> None:
     assert colors_a == colors_b
 
 
+def test_slices_ordered_by_amount_but_colors_stay_by_name() -> None:
+    chart = build_chart(
+        pay_amount=100_000,
+        totals=[("Apple", 10_000), ("Zebra", 30_000), ("Mango", 20_000)],
+        leftover_amount=40_000,
+    )
+    assert [s.label for s in chart.slices] == ["Zebra", "Mango", "Apple", "Leftover"]
+    colors = {s.label: s.color for s in chart.slices}
+    # Colors follow alphabetical order, so a category keeps its color across
+    # cycles even when its amount (and so its position) changes.
+    assert colors["Apple"] == PALETTE[0]
+    assert colors["Mango"] == PALETTE[1]
+    assert colors["Zebra"] == PALETTE[2]
+
+
 def test_palette_wraps_after_eight_categories() -> None:
     totals = [(f"Category {i}", 1_000) for i in range(10)]
     chart = build_chart(pay_amount=100_000, totals=totals, leftover_amount=90_000)
