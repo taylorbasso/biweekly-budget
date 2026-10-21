@@ -7,7 +7,7 @@ from datetime import date, timedelta
 from fractions import Fraction
 
 from budget.cycles import Cycle
-from budget.models import Account, CreditAccount, PaySchedule, RecurringExpense
+from budget.models import DEBT_KINDS, Account, Debt, PaySchedule, RecurringExpense
 
 UNCATEGORIZED = "Uncategorized"
 
@@ -328,8 +328,17 @@ def payoff_months(balance: int, interest_rate: float, payment: int) -> int | Non
     return math.ceil(n)
 
 
-def effective_payment(account: CreditAccount) -> int:
-    return account.actual_payment if account.actual_payment > 0 else account.minimum_payment
+def effective_payment(debt: Debt) -> int:
+    """What is actually paid each month: the actual payment if set, else the minimum."""
+    return debt.actual_payment if debt.actual_payment > 0 else debt.minimum_payment
+
+
+def payoff_month(today: date, months: int | None) -> date | None:
+    """First day of the month the balance reaches zero, counting from today's month."""
+    if months is None:
+        return None
+    index = today.month - 1 + months
+    return date(today.year + index // 12, index % 12 + 1, 1)
 
 
 def utilization_percent(balance: int, credit_limit: int) -> float | None:
@@ -339,41 +348,93 @@ def utilization_percent(balance: int, credit_limit: int) -> float | None:
 
 
 @dataclass(frozen=True)
-class CreditAccountRow:
-    account: CreditAccount
+class DebtRow:
+    debt: Debt
+    monthly_payment: int  # integer cents; see effective_payment
     payoff_months: int | None
+    payoff_month: date | None
     utilization_percent: float | None
 
 
 @dataclass(frozen=True)
-class CreditCardsTotals:
+class DebtTotals:
     balance: int
     minimum_payment: int
-    actual_payment: int
+    monthly_payment: int  # sum of what is actually paid (effective_payment)
     credit_limit: int
-    utilization_percent: float | None
+    utilization_percent: float | None  # only debts with a credit limit count
+    debt_free_month: date | None  # None if nothing is owed or a balance never pays off
 
 
-def compute_credit_cards(
-    accounts: list[CreditAccount],
-) -> tuple[list[CreditAccountRow], CreditCardsTotals]:
-    rows = [
-        CreditAccountRow(
-            account=account,
-            payoff_months=payoff_months(
-                account.balance, account.interest_rate, effective_payment(account)
-            ),
-            utilization_percent=utilization_percent(account.balance, account.credit_limit),
+@dataclass(frozen=True)
+class DebtGroup:
+    kind: str  # one of DEBT_KINDS
+    rows: list[DebtRow]  # highest interest rate first, then name
+    balance: int
+    monthly_payment: int
+    credit_limit: int
+    utilization_percent: float | None  # None for loans (no limit)
+
+
+def group_debts(rows: list[DebtRow]) -> list[DebtGroup]:
+    """Credit cards, then loans (empty groups left out); most expensive debt first."""
+    groups = []
+    for kind in DEBT_KINDS:
+        group_rows = sorted(
+            (row for row in rows if row.debt.kind == kind),
+            key=lambda row: (-row.debt.interest_rate, row.debt.name.casefold()),
         )
-        for account in accounts
-    ]
-    total_balance = sum((account.balance for account in accounts), 0)
-    total_credit_limit = sum((account.credit_limit for account in accounts), 0)
-    totals = CreditCardsTotals(
+        if not group_rows:
+            continue
+        credit_limit = sum((row.debt.credit_limit for row in group_rows), 0)
+        # Only balances with a tracked limit count toward usage.
+        limited_balance = sum(
+            (row.debt.balance for row in group_rows if row.debt.credit_limit > 0), 0
+        )
+        groups.append(
+            DebtGroup(
+                kind=kind,
+                rows=group_rows,
+                balance=sum((row.debt.balance for row in group_rows), 0),
+                monthly_payment=sum((row.monthly_payment for row in group_rows), 0),
+                credit_limit=credit_limit,
+                utilization_percent=utilization_percent(limited_balance, credit_limit),
+            )
+        )
+    return groups
+
+
+def compute_debts(debts: list[Debt], today: date) -> tuple[list[DebtRow], DebtTotals]:
+    rows = []
+    for debt in debts:
+        months = payoff_months(debt.balance, debt.interest_rate, effective_payment(debt))
+        rows.append(
+            DebtRow(
+                debt=debt,
+                monthly_payment=effective_payment(debt),
+                payoff_months=months,
+                payoff_month=payoff_month(today, months),
+                utilization_percent=utilization_percent(debt.balance, debt.credit_limit),
+            )
+        )
+
+    total_balance = sum((debt.balance for debt in debts), 0)
+    total_credit_limit = sum((debt.credit_limit for debt in debts), 0)
+    # Loans have no credit limit, so their balances don't count toward usage.
+    limited_balance = sum((debt.balance for debt in debts if debt.credit_limit > 0), 0)
+    owed = [row for row in rows if row.debt.balance > 0]
+    payoff_months_owed = [row.payoff_month for row in owed]
+    debt_free_month = (
+        max(month for month in payoff_months_owed if month is not None)
+        if owed and None not in payoff_months_owed
+        else None
+    )
+    totals = DebtTotals(
         balance=total_balance,
-        minimum_payment=sum((account.minimum_payment for account in accounts), 0),
-        actual_payment=sum((account.actual_payment for account in accounts), 0),
+        minimum_payment=sum((debt.minimum_payment for debt in debts), 0),
+        monthly_payment=sum((row.monthly_payment for row in rows), 0),
         credit_limit=total_credit_limit,
-        utilization_percent=utilization_percent(total_balance, total_credit_limit),
+        utilization_percent=utilization_percent(limited_balance, total_credit_limit),
+        debt_free_month=debt_free_month,
     )
     return rows, totals

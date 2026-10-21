@@ -14,9 +14,10 @@ from budget.calculations import (
     account_spendable,
     compute_annual_cost_breakdown,
     compute_breakdown,
-    compute_credit_cards,
+    compute_debts,
     compute_leftover,
     compute_runway,
+    group_debts,
     group_expenses_by_category,
     monthly_equivalent,
     occurrences_in_cycle,
@@ -25,7 +26,7 @@ from budget.charts import build_chart
 from budget.cycles import resolve_cycle, upcoming_cycles
 from budget.models import (
     Account,
-    CreditAccount,
+    Debt,
     PaySchedule,
     RecurringExpense,
     ValidationError,
@@ -336,7 +337,7 @@ def account_delete(account_id: int) -> ResponseReturnValue:
     return redirect(url_for("budget.runway"))
 
 
-def _credit_account_from_form(credit_account_id: int | None) -> CreditAccount:
+def _debt_from_form(debt_id: int | None) -> Debt:
     name = request.form.get("name", "")
     balance = _parse_dollars(request.form.get("balance", ""))
     interest_rate_raw = request.form.get("interest_rate", "").strip()
@@ -346,93 +347,136 @@ def _credit_account_from_form(credit_account_id: int | None) -> CreditAccount:
     actual_payment = _parse_dollars(actual_payment_raw) if actual_payment_raw else 0
     credit_limit_raw = request.form.get("credit_limit", "").strip()
     credit_limit = _parse_dollars(credit_limit_raw) if credit_limit_raw else 0
-    return CreditAccount(
-        id=credit_account_id,
+    return Debt(
+        id=debt_id,
         name=name,
         balance=balance,
         interest_rate=interest_rate,
         minimum_payment=minimum_payment,
         actual_payment=actual_payment,
         credit_limit=credit_limit,
+        kind=request.form.get("kind", "credit_card"),
     )
+
+
+def _debt_form_values(debt: Debt | None) -> dict[str, str]:
+    """Field values for debt_form.html; optional amounts left at 0 show as blank."""
+    if debt is None:
+        return {
+            "kind": "credit_card",
+            "name": "",
+            "balance": "",
+            "interest_rate": "",
+            "minimum_payment": "",
+            "actual_payment": "",
+            "credit_limit": "",
+        }
+    return {
+        "kind": debt.kind,
+        "name": debt.name,
+        "balance": _dollars_input(debt.balance),
+        "interest_rate": f"{debt.interest_rate:g}",
+        "minimum_payment": _dollars_input(debt.minimum_payment),
+        "actual_payment": _dollars_input(debt.actual_payment) if debt.actual_payment else "",
+        "credit_limit": _dollars_input(debt.credit_limit) if debt.credit_limit else "",
+    }
+
+
+def _debt_form_values_from_request() -> dict[str, str]:
+    """What the user just submitted, so a rejected form comes back as they typed it."""
+    fields = (
+        "kind",
+        "name",
+        "balance",
+        "interest_rate",
+        "minimum_payment",
+        "actual_payment",
+        "credit_limit",
+    )
+    return {field: request.form.get(field, "") for field in fields}
+
+
+@bp.route("/debt")
+def debt_list() -> str:
+    conn = get_db()
+    rows, totals = compute_debts(db.list_debts(conn, _user_id()), date.today())
+    return render_template("debt.html", groups=group_debts(rows), totals=totals)
 
 
 @bp.route("/credit-cards")
-def credit_cards() -> str:
-    conn = get_db()
-    accounts = db.list_credit_accounts(conn, _user_id())
-    rows, totals = compute_credit_cards(accounts)
-    return render_template("credit_cards.html", rows=rows, totals=totals)
+def credit_cards_redirect() -> ResponseReturnValue:
+    """The page was renamed from Credit Cards to Debt; keep old links working."""
+    return redirect(url_for("budget.debt_list"), code=301)
 
 
-@bp.route("/credit-cards/new", methods=["GET"])
-def credit_account_new() -> str:
+@bp.route("/debt/new", methods=["GET"])
+def debt_new() -> str:
     return render_template(
-        "credit_account_form.html", account=None, error=None, action="/credit-cards"
+        "debt_form.html", values=_debt_form_values(None), error=None, action="/debt"
     )
 
 
-@bp.route("/credit-cards", methods=["POST"])
-def credit_account_create() -> ResponseReturnValue:
+@bp.route("/debt", methods=["POST"])
+def debt_create() -> ResponseReturnValue:
     try:
-        account = _credit_account_from_form(None)
+        debt = _debt_from_form(None)
     except (ValueError, ValidationError) as exc:
         return (
             render_template(
-                "credit_account_form.html",
-                account=None,
+                "debt_form.html",
+                values=_debt_form_values_from_request(),
                 error=str(exc),
-                action="/credit-cards",
+                action="/debt",
             ),
             400,
         )
     conn = get_db()
-    db.create_credit_account(conn, _user_id(), account)
-    return redirect(url_for("budget.credit_cards"))
+    db.create_debt(conn, _user_id(), debt)
+    return redirect(url_for("budget.debt_list"))
 
 
-@bp.route("/credit-cards/<int:credit_account_id>/edit", methods=["GET"])
-def credit_account_edit(credit_account_id: int) -> str:
+@bp.route("/debt/<int:debt_id>/edit", methods=["GET"])
+def debt_edit(debt_id: int) -> str:
     conn = get_db()
-    account = db.get_credit_account(conn, _user_id(), credit_account_id)
-    if account is None:
+    debt = db.get_debt(conn, _user_id(), debt_id)
+    if debt is None:
         abort(404)
     return render_template(
-        "credit_account_form.html",
-        account=account,
+        "debt_form.html",
+        values=_debt_form_values(debt),
         error=None,
-        action=f"/credit-cards/{credit_account_id}/edit",
+        action=f"/debt/{debt_id}/edit",
     )
 
 
-@bp.route("/credit-cards/<int:credit_account_id>/edit", methods=["POST"])
-def credit_account_update(credit_account_id: int) -> ResponseReturnValue:
+@bp.route("/debt/<int:debt_id>/edit", methods=["POST"])
+def debt_update(debt_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_credit_account(conn, _user_id(), credit_account_id) is None:
+    if db.get_debt(conn, _user_id(), debt_id) is None:
         abort(404)
     try:
-        account = _credit_account_from_form(credit_account_id)
+        debt = _debt_from_form(debt_id)
     except (ValueError, ValidationError) as exc:
         return (
             render_template(
-                "credit_account_form.html",
-                account=None,
+                "debt_form.html",
+                values=_debt_form_values_from_request(),
                 error=str(exc),
-                action=f"/credit-cards/{credit_account_id}/edit",
+                action=f"/debt/{debt_id}/edit",
             ),
             400,
         )
-    db.update_credit_account(conn, _user_id(), credit_account_id, account)
-    return redirect(url_for("budget.credit_cards"))
+    db.update_debt(conn, _user_id(), debt_id, debt)
+    return redirect(url_for("budget.debt_list"))
 
 
-@bp.route("/credit-cards/<int:credit_account_id>/delete", methods=["POST"])
-def credit_account_delete(credit_account_id: int) -> ResponseReturnValue:
+@bp.route("/debt/<int:debt_id>/delete", methods=["POST"])
+def debt_delete(debt_id: int) -> ResponseReturnValue:
     conn = get_db()
-    if db.get_credit_account(conn, _user_id(), credit_account_id) is None:
+    if db.get_debt(conn, _user_id(), debt_id) is None:
         abort(404)
-    db.delete_credit_account(conn, _user_id(), credit_account_id)
-    return redirect(url_for("budget.credit_cards"))
+    db.delete_debt(conn, _user_id(), debt_id)
+    return redirect(url_for("budget.debt_list"))
 
 
 @bp.route("/expenses/new", methods=["GET"])

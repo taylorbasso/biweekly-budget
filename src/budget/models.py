@@ -6,6 +6,7 @@ from datetime import date
 from flask_login import UserMixin
 
 RECURRENCE_TYPES = ("day_of_month", "day_of_week", "biweekly")
+DEBT_KINDS = ("credit_card", "loan")
 
 
 class ValidationError(ValueError):
@@ -71,7 +72,7 @@ class Account:
 
 
 @dataclass(frozen=True)
-class CreditAccount:
+class Debt:
     id: int | None
     name: str
     balance: int  # integer cents
@@ -79,6 +80,7 @@ class CreditAccount:
     minimum_payment: int = 0  # integer cents
     actual_payment: int = 0  # integer cents; 0 means "not set" (falls back to minimum)
     credit_limit: int = 0  # integer cents; 0 means "not tracked" (usage % shown as N/A)
+    kind: str = "credit_card"  # one of DEBT_KINDS; only credit cards have a limit
 
     def __post_init__(self) -> None:
         if not self.name.strip():
@@ -93,6 +95,10 @@ class CreditAccount:
             raise ValidationError("actual_payment must not be negative")
         if self.credit_limit < 0:
             raise ValidationError("credit_limit must not be negative")
+        if self.kind not in DEBT_KINDS:
+            raise ValidationError(f"kind must be one of {DEBT_KINDS}")
+        if self.kind == "loan" and self.credit_limit:
+            raise ValidationError("a loan doesn't have a credit limit")
 
 
 @dataclass(frozen=True)

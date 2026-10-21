@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% set editing = action != "/debt" %}
+{% block title %}{{ "Edit" if editing else "Add" }} Card or Loan — Biweekly Budget{% endblock %}
+{% block content %}
+<h1>{{ "Edit" if editing else "Add" }} Card or Loan</h1>
+
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% endif %}
+
+<form method="post" action="{{ action }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label>
+    Type
+    <select name="kind" data-toggles-fields>
+      <option value="credit_card" {% if values.kind == "credit_card" %}selected{% endif %}>Credit card</option>
+      <option value="loan" {% if values.kind == "loan" %}selected{% endif %}>Loan</option>
+    </select>
+  </label>
+  <label>
+    Name
+    <input type="text" name="name" placeholder="e.g. Visa or Car loan" value="{{ values.name }}" required>
+  </label>
+  <label>
+    Balance owed
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="balance"
+             value="{{ values.balance }}" required>
+    </span>
+  </label>
+  <label>
+    Interest rate (APR)
+    <span class="input-suffix">
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="interest_rate"
+             placeholder="e.g. 24.99" value="{{ values.interest_rate }}">
+      <span aria-hidden="true">%</span>
+    </span>
+  </label>
+  <label>
+    Minimum payment
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="minimum_payment"
+             value="{{ values.minimum_payment }}">
+    </span>
+  </label>
+  <label>
+    Actual payment (optional)
+    <span class="hint">What you actually pay each month. Leave blank to use the minimum.</span>
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="actual_payment"
+             value="{{ values.actual_payment }}">
+    </span>
+  </label>
+  <label data-show-for="credit_card">
+    Credit limit (optional)
+    <span class="hint">Shows how much of the limit you're using.</span>
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0" inputmode="decimal" name="credit_limit"
+             value="{{ values.credit_limit }}">
+    </span>
+  </label>
+  <div class="form-actions">
+    <button type="submit">{{ "Save changes" if editing else "Add" }}</button>
+    <a href="/debt">Cancel</a>
+  </div>
+</form>
+<script src="{{ url_for('static', filename='field_toggle.js') }}" defer></script>
+{% endblock %}

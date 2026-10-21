@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from budget.models import Account, CreditAccount, RecurringExpense, ValidationError
+from budget.models import Account, Debt, RecurringExpense, ValidationError
 
 
 def test_recurring_expense_defaults_essential_false() -> None:
@@ -53,43 +53,61 @@ def test_account_rejects_empty_name() -> None:
         Account(id=None, name="   ", balance=100)
 
 
-def test_credit_account_defaults() -> None:
-    account = CreditAccount(id=None, name="Visa", balance=200_000)
+def test_debt_defaults() -> None:
+    account = Debt(id=None, name="Visa", balance=200_000)
     assert account.interest_rate == 0
     assert account.minimum_payment == 0
     assert account.actual_payment == 0
 
 
-def test_credit_account_rejects_empty_name() -> None:
+def test_debt_rejects_empty_name() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="   ", balance=100)
+        Debt(id=None, name="   ", balance=100)
 
 
-def test_credit_account_rejects_negative_balance() -> None:
+def test_debt_rejects_negative_balance() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="Visa", balance=-1)
+        Debt(id=None, name="Visa", balance=-1)
 
 
-def test_credit_account_rejects_negative_interest_rate() -> None:
+def test_debt_rejects_negative_interest_rate() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="Visa", balance=100, interest_rate=-1)
+        Debt(id=None, name="Visa", balance=100, interest_rate=-1)
 
 
-def test_credit_account_rejects_negative_minimum_payment() -> None:
+def test_debt_rejects_negative_minimum_payment() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="Visa", balance=100, minimum_payment=-1)
+        Debt(id=None, name="Visa", balance=100, minimum_payment=-1)
 
 
-def test_credit_account_rejects_negative_actual_payment() -> None:
+def test_debt_rejects_negative_actual_payment() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="Visa", balance=100, actual_payment=-1)
+        Debt(id=None, name="Visa", balance=100, actual_payment=-1)
 
 
-def test_credit_account_credit_limit_defaults_to_zero() -> None:
-    account = CreditAccount(id=None, name="Visa", balance=100)
+def test_debt_credit_limit_defaults_to_zero() -> None:
+    account = Debt(id=None, name="Visa", balance=100)
     assert account.credit_limit == 0
 
 
-def test_credit_account_rejects_negative_credit_limit() -> None:
+def test_debt_rejects_negative_credit_limit() -> None:
     with pytest.raises(ValidationError):
-        CreditAccount(id=None, name="Visa", balance=100, credit_limit=-1)
+        Debt(id=None, name="Visa", balance=100, credit_limit=-1)
+
+
+def test_debt_kind_defaults_to_credit_card() -> None:
+    assert Debt(id=None, name="Visa", balance=100).kind == "credit_card"
+
+
+def test_debt_accepts_loan_kind() -> None:
+    assert Debt(id=None, name="Car loan", balance=100, kind="loan").kind == "loan"
+
+
+def test_debt_rejects_unknown_kind() -> None:
+    with pytest.raises(ValidationError):
+        Debt(id=None, name="Visa", balance=100, kind="mortgage")
+
+
+def test_debt_loan_cannot_have_credit_limit() -> None:
+    with pytest.raises(ValidationError):
+        Debt(id=None, name="Car loan", balance=100, credit_limit=500, kind="loan")

@@ -8,7 +8,7 @@ from flask.testing import FlaskClient
 
 from budget import db
 from budget.app import get_db
-from budget.models import Account, CreditAccount, PaySchedule, RecurringExpense
+from budget.models import Account, Debt, PaySchedule, RecurringExpense
 from tests.conftest import TEST_EMAIL, login
 
 
@@ -77,7 +77,7 @@ def _seed_account(
         )
 
 
-def _seed_credit_account(
+def _seed_debt(
     app,
     name: str,
     balance: int,
@@ -85,13 +85,14 @@ def _seed_credit_account(
     minimum_payment: int = 0,
     actual_payment: int = 0,
     credit_limit: int = 0,
+    kind: str = "credit_card",
 ) -> int:
     with app.app_context():
         conn = get_db()
-        return db.create_credit_account(
+        return db.create_debt(
             conn,
             _owner_id(app),
-            CreditAccount(
+            Debt(
                 id=None,
                 name=name,
                 balance=balance,
@@ -99,6 +100,7 @@ def _seed_credit_account(
                 minimum_payment=minimum_payment,
                 actual_payment=actual_payment,
                 credit_limit=credit_limit,
+                kind=kind,
             ),
         )
 
@@ -511,37 +513,44 @@ def test_account_edit_form_prefills_balance_with_cents(app, client: FlaskClient)
     assert 'value="15"' in body
 
 
-def test_credit_cards_empty_state(app, client: FlaskClient) -> None:
-    response = client.get("/credit-cards")
+def test_debt_empty_state(app, client: FlaskClient) -> None:
+    response = client.get("/debt")
 
     assert response.status_code == 200
     body = response.get_data(as_text=True)
-    assert "No credit cards or loans recorded" in body
+    assert "No debts recorded yet" in body
 
 
-def test_credit_cards_table_shows_rows_and_independent_totals(
+def test_debt_table_shows_rows_and_independent_totals(
     app, client: FlaskClient
 ) -> None:
-    _seed_credit_account(
+    _seed_debt(
         app, "Visa", 200_000, interest_rate=20, minimum_payment=5_000, actual_payment=10_000
     )
-    _seed_credit_account(
-        app, "Car Loan", 500_000, interest_rate=6, minimum_payment=15_000, actual_payment=0
+    _seed_debt(
+        app,
+        "Car Loan",
+        500_000,
+        interest_rate=6,
+        minimum_payment=15_000,
+        actual_payment=0,
+        kind="loan",
     )
 
-    body = client.get("/credit-cards").get_data(as_text=True)
+    body = client.get("/debt").get_data(as_text=True)
 
     assert "Visa" in body
     assert "Car Loan" in body
     assert "$700,000.00" not in body  # sanity: not double counting
     assert "$7,000.00" in body  # totals.balance = 2000 + 5000
     assert "$200.00" in body  # totals.minimum_payment = 50 + 150
-    assert "$100.00" in body  # totals.actual_payment = 100 + 0
+    # Monthly payments: Visa's $100 actual + Car Loan's $150 minimum (no actual set)
+    assert "$250.00/mo in payments" in body
 
 
-def test_credit_cards_create_and_edit(app, client: FlaskClient) -> None:
+def test_debt_create_and_edit(app, client: FlaskClient) -> None:
     response = client.post(
-        "/credit-cards",
+        "/debt",
         data={
             "name": "Visa",
             "balance": "2000.00",
@@ -554,16 +563,16 @@ def test_credit_cards_create_and_edit(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        accounts = db.list_credit_accounts(conn, _owner_id(app))
+        accounts = db.list_debts(conn, _owner_id(app))
     assert len(accounts) == 1
-    credit_account_id = accounts[0].id
+    debt_id = accounts[0].id
 
-    edit_response = client.get(f"/credit-cards/{credit_account_id}/edit")
+    edit_response = client.get(f"/debt/{debt_id}/edit")
     assert edit_response.status_code == 200
     assert "2000.00" in edit_response.get_data(as_text=True)
 
     update_response = client.post(
-        f"/credit-cards/{credit_account_id}/edit",
+        f"/debt/{debt_id}/edit",
         data={
             "name": "Visa",
             "balance": "1000.00",
@@ -576,16 +585,16 @@ def test_credit_cards_create_and_edit(app, client: FlaskClient) -> None:
 
     with app.app_context():
         conn = get_db()
-        updated = db.get_credit_account(conn, _owner_id(app), credit_account_id)
+        updated = db.get_debt(conn, _owner_id(app), debt_id)
     assert updated.balance == 100_000
     assert updated.actual_payment == 5_000
 
 
-def test_credit_account_edit_unknown_id_404s(app, client: FlaskClient) -> None:
-    assert client.get("/credit-cards/999/edit").status_code == 404
+def test_debt_edit_unknown_id_404s(app, client: FlaskClient) -> None:
+    assert client.get("/debt/999/edit").status_code == 404
     assert (
         client.post(
-            "/credit-cards/999/edit",
+            "/debt/999/edit",
             data={
                 "name": "X",
                 "balance": "1.00",
@@ -598,11 +607,11 @@ def test_credit_account_edit_unknown_id_404s(app, client: FlaskClient) -> None:
     )
 
 
-def test_credit_account_create_negative_balance_shows_inline_error(
+def test_debt_create_negative_balance_shows_inline_error(
     app, client: FlaskClient
 ) -> None:
     response = client.post(
-        "/credit-cards",
+        "/debt",
         data={
             "name": "Visa",
             "balance": "-5.00",
@@ -616,63 +625,64 @@ def test_credit_account_create_negative_balance_shows_inline_error(
 
     with app.app_context():
         conn = get_db()
-        assert db.list_credit_accounts(conn, _owner_id(app)) == []
+        assert db.list_debts(conn, _owner_id(app)) == []
 
 
-def test_credit_account_delete_removes_entry_and_updates_totals(
+def test_debt_delete_removes_entry_and_updates_totals(
     app, client: FlaskClient
 ) -> None:
-    credit_account_id = _seed_credit_account(app, "Visa", 200_000, minimum_payment=5_000)
+    debt_id = _seed_debt(app, "Visa", 200_000, minimum_payment=5_000)
 
-    delete_response = client.post(f"/credit-cards/{credit_account_id}/delete")
+    delete_response = client.post(f"/debt/{debt_id}/delete")
     assert delete_response.status_code == 302
 
-    body = client.get("/credit-cards").get_data(as_text=True)
-    assert "No credit cards or loans recorded" in body
+    body = client.get("/debt").get_data(as_text=True)
+    assert "No debts recorded yet" in body
 
     with app.app_context():
         conn = get_db()
-        assert db.get_credit_account(conn, _owner_id(app), credit_account_id) is None
+        assert db.get_debt(conn, _owner_id(app), debt_id) is None
 
 
-def test_credit_account_delete_unknown_id_404s(app, client: FlaskClient) -> None:
-    assert client.post("/credit-cards/999/delete").status_code == 404
+def test_debt_delete_unknown_id_404s(app, client: FlaskClient) -> None:
+    assert client.post("/debt/999/delete").status_code == 404
 
 
-def test_credit_cards_payoff_time_display_states(app, client: FlaskClient) -> None:
-    _seed_credit_account(
+def test_debt_payoff_time_display_states(app, client: FlaskClient) -> None:
+    _seed_debt(
         app, "Visa", 200_000, interest_rate=20, minimum_payment=5_000, actual_payment=10_000
     )
-    _seed_credit_account(app, "Paid Off Card", 0, minimum_payment=2_000)
-    _seed_credit_account(
+    _seed_debt(app, "Paid Off Card", 0, minimum_payment=2_000)
+    _seed_debt(
         app, "Maxed Card", 100_000, interest_rate=24, minimum_payment=0, actual_payment=0
     )
 
-    body = client.get("/credit-cards").get_data(as_text=True)
+    body = client.get("/debt").get_data(as_text=True)
 
     assert "25 months" in body
     assert "Paid off" in body
     assert "Never at this rate" in body
 
 
-def test_credit_cards_shows_usage_percent_and_credit_limit_total(
+def test_debt_shows_usage_percent_and_credit_limit_total(
     app, client: FlaskClient
 ) -> None:
-    _seed_credit_account(app, "Visa", 30_000, credit_limit=100_000)
-    _seed_credit_account(app, "Untracked Limit", 50_000, credit_limit=0)
+    _seed_debt(app, "Visa", 30_000, credit_limit=100_000)
+    _seed_debt(app, "Untracked Limit", 50_000, credit_limit=0)
 
-    body = client.get("/credit-cards").get_data(as_text=True)
+    body = client.get("/debt").get_data(as_text=True)
 
-    assert "30.0%" in body  # Visa: 30000/100000
-    assert "N/A" in body  # Untracked Limit has no credit_limit set
-    assert "$1,000.00" in body  # totals.credit_limit
+    assert "30.0% of $1,000.00" in body  # Visa: 30000/100000
+    assert "N/A" not in body  # a card with no limit just shows no usage line
+    # Card usage counts only cards with a limit: 30000/100000, not 80000/100000
+    assert "30.0% of limit used" in body
 
 
-def test_credit_account_create_and_edit_with_credit_limit(
+def test_debt_create_and_edit_with_credit_limit(
     app, client: FlaskClient
 ) -> None:
     client.post(
-        "/credit-cards",
+        "/debt",
         data={
             "name": "Visa",
             "balance": "300.00",
@@ -685,11 +695,11 @@ def test_credit_account_create_and_edit_with_credit_limit(
 
     with app.app_context():
         conn = get_db()
-        account = db.list_credit_accounts(conn, _owner_id(app))[0]
+        account = db.list_debts(conn, _owner_id(app))[0]
     assert account.credit_limit == 100_000
 
     client.post(
-        f"/credit-cards/{account.id}/edit",
+        f"/debt/{account.id}/edit",
         data={
             "name": "Visa",
             "balance": "300.00",
@@ -702,5 +712,76 @@ def test_credit_account_create_and_edit_with_credit_limit(
 
     with app.app_context():
         conn = get_db()
-        updated = db.get_credit_account(conn, _owner_id(app), account.id)
+        updated = db.get_debt(conn, _owner_id(app), account.id)
     assert updated.credit_limit == 150_000
+
+
+def test_debt_page_groups_cards_and_loans_with_card_usage(
+    app, client: FlaskClient
+) -> None:
+    _seed_debt(app, "Visa", 345_012, interest_rate=24.99, credit_limit=1_500_000)
+    _seed_debt(app, "Student loan", 1_823_400, interest_rate=5.5, kind="loan")
+
+    body = client.get("/debt").get_data(as_text=True)
+
+    assert body.index("Credit cards") < body.index("Visa")
+    assert body.index("Visa") < body.index("Loans") < body.index("Student loan")
+    # The loan's balance doesn't inflate card usage (was 144.6% before)
+    assert "23.0% of limit used" in body
+    assert "144.6%" not in body
+
+
+def test_debt_loan_with_credit_limit_is_rejected(app, client: FlaskClient) -> None:
+    response = client.post(
+        "/debt",
+        data={
+            "kind": "loan",
+            "name": "Car loan",
+            "balance": "5000.00",
+            "credit_limit": "1000.00",
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert "credit limit" in body
+    assert 'value="Car loan"' in body
+    assert '<option value="loan" selected>' in body
+
+
+def test_debt_create_loan(app, client: FlaskClient) -> None:
+    response = client.post(
+        "/debt",
+        data={"kind": "loan", "name": "Car loan", "balance": "5000.00"},
+    )
+
+    assert response.status_code == 302
+    with app.app_context():
+        conn = get_db()
+        (debt,) = db.list_debts(conn, _owner_id(app))
+    assert debt.kind == "loan"
+    assert debt.credit_limit == 0
+
+
+def test_debt_edit_error_stays_in_edit_mode_with_submitted_values(
+    app, client: FlaskClient
+) -> None:
+    debt_id = _seed_debt(app, "Visa", 100_000, interest_rate=20)
+
+    response = client.post(
+        f"/debt/{debt_id}/edit",
+        data={"kind": "credit_card", "name": "Visa Signature", "balance": "-1.00"},
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert "Edit Card or Loan" in body
+    assert "Save changes</button>" in body
+    assert 'value="Visa Signature"' in body
+
+
+def test_old_credit_cards_url_redirects_to_debt(app, client: FlaskClient) -> None:
+    response = client.get("/credit-cards")
+
+    assert response.status_code == 301
+    assert response.headers["Location"] == "/debt"

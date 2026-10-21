@@ -11,14 +11,16 @@ from budget.calculations import (
     annual_cost,
     compute_annual_cost_breakdown,
     compute_breakdown,
-    compute_credit_cards,
+    compute_debts,
     compute_leftover,
     compute_runway,
     effective_payment,
     essential_monthly_burn,
+    group_debts,
     group_expenses_by_category,
     monthly_equivalent,
     occurrences_in_cycle,
+    payoff_month,
     payoff_months,
     total_spendable,
     utilization_percent,
@@ -26,7 +28,7 @@ from budget.calculations import (
 from budget.cycles import Cycle
 from budget.models import (
     Account,
-    CreditAccount,
+    Debt,
     PaySchedule,
     RecurringExpense,
     ValidationError,
@@ -572,8 +574,27 @@ def test_payoff_months_matches_quickstart_car_loan_example() -> None:
     assert payoff_months(500_000, 6.0, 15_000) == 37
 
 
+TODAY = date(2026, 10, 20)
+
+
+def test_payoff_month_counts_forward_from_this_month() -> None:
+    assert payoff_month(date(2026, 10, 20), 17) == date(2028, 3, 1)
+
+
+def test_payoff_month_rolls_over_december() -> None:
+    assert payoff_month(date(2026, 12, 31), 1) == date(2027, 1, 1)
+
+
+def test_payoff_month_zero_months_is_this_month() -> None:
+    assert payoff_month(date(2026, 2, 28), 0) == date(2026, 2, 1)
+
+
+def test_payoff_month_never_pays_off_is_none() -> None:
+    assert payoff_month(date(2026, 10, 20), None) is None
+
+
 def test_effective_payment_uses_actual_when_positive() -> None:
-    account = CreditAccount(
+    account = Debt(
         id=1,
         name="Visa",
         balance=200_000,
@@ -585,7 +606,7 @@ def test_effective_payment_uses_actual_when_positive() -> None:
 
 
 def test_effective_payment_falls_back_to_minimum_when_actual_unset() -> None:
-    account = CreditAccount(
+    account = Debt(
         id=1,
         name="Car Loan",
         balance=500_000,
@@ -596,9 +617,9 @@ def test_effective_payment_falls_back_to_minimum_when_actual_unset() -> None:
     assert effective_payment(account) == 15_000
 
 
-def test_compute_credit_cards_sums_columns_independently() -> None:
+def test_compute_debts_sums_columns_independently() -> None:
     accounts = [
-        CreditAccount(
+        Debt(
             id=1,
             name="Visa",
             balance=200_000,
@@ -606,7 +627,7 @@ def test_compute_credit_cards_sums_columns_independently() -> None:
             minimum_payment=5_000,
             actual_payment=10_000,
         ),
-        CreditAccount(
+        Debt(
             id=2,
             name="Car Loan",
             balance=500_000,
@@ -615,21 +636,25 @@ def test_compute_credit_cards_sums_columns_independently() -> None:
             actual_payment=0,
         ),
     ]
-    rows, totals = compute_credit_cards(accounts)
-    assert [row.account.name for row in rows] == ["Visa", "Car Loan"]
+    rows, totals = compute_debts(accounts, TODAY)
+    assert [row.debt.name for row in rows] == ["Visa", "Car Loan"]
     assert totals.balance == 700_000
     assert totals.minimum_payment == 20_000
-    assert totals.actual_payment == 10_000
+    # What is actually paid each month: Visa's $100 actual + Car Loan's $150
+    # minimum (no actual payment set, so it falls back to the minimum).
+    assert totals.monthly_payment == 25_000
+    assert [row.monthly_payment for row in rows] == [10_000, 15_000]
 
 
-def test_compute_credit_cards_empty_list_gives_zero_totals() -> None:
-    rows, totals = compute_credit_cards([])
+def test_compute_debts_empty_list_gives_zero_totals() -> None:
+    rows, totals = compute_debts([], TODAY)
     assert rows == []
     assert totals.balance == 0
     assert totals.minimum_payment == 0
-    assert totals.actual_payment == 0
+    assert totals.monthly_payment == 0
     assert totals.credit_limit == 0
     assert totals.utilization_percent is None
+    assert totals.debt_free_month is None
 
 
 def test_utilization_percent_normal_case() -> None:
@@ -644,19 +669,73 @@ def test_utilization_percent_can_exceed_100_when_over_limit() -> None:
     assert utilization_percent(120_000, 100_000) == pytest.approx(120.0)
 
 
-def test_compute_credit_cards_includes_per_row_and_total_utilization() -> None:
+def test_compute_debts_includes_per_row_and_total_utilization() -> None:
     accounts = [
-        CreditAccount(id=1, name="Visa", balance=30_000, credit_limit=100_000),
-        CreditAccount(id=2, name="No Limit Tracked", balance=50_000, credit_limit=0),
+        Debt(id=1, name="Visa", balance=30_000, credit_limit=100_000),
+        Debt(id=2, name="No Limit Tracked", balance=50_000, credit_limit=0),
     ]
-    rows, totals = compute_credit_cards(accounts)
+    rows, totals = compute_debts(accounts, TODAY)
     assert rows[0].utilization_percent == pytest.approx(30.0)
     assert rows[1].utilization_percent is None
     assert totals.credit_limit == 100_000
-    # Aggregate utilization uses total balance / total credit limit, not an
-    # average of per-row percentages, since the second account's limit isn't
-    # tracked (0) and shouldn't be treated as a 0%-utilized account.
-    assert totals.utilization_percent == pytest.approx(80.0)
+    # Aggregate usage counts only balances that have a credit limit (loans
+    # don't), and is computed once rather than averaged: 30,000 / 100,000.
+    assert totals.utilization_percent == pytest.approx(30.0)
+
+
+def test_compute_debts_total_utilization_ignores_loan_balances() -> None:
+    accounts = [
+        Debt(id=1, name="Card A", balance=345_012, credit_limit=1_500_000),
+        Debt(id=2, name="Student loan", balance=1_823_400, credit_limit=0),
+        Debt(id=3, name="Card B", balance=50_000, credit_limit=500_000),
+    ]
+    _, totals = compute_debts(accounts, TODAY)
+    assert totals.balance == 345_012 + 1_823_400 + 50_000
+    assert totals.utilization_percent == pytest.approx(395_012 / 2_000_000 * 100)
+
+
+def test_compute_debts_rows_carry_payoff_month() -> None:
+    accounts = [
+        Debt(
+            id=1, name="Visa", balance=200_000, interest_rate=20.0, actual_payment=10_000
+        ),
+        Debt(id=2, name="Stuck", balance=100_000, interest_rate=24.0),
+    ]
+    rows, _ = compute_debts(accounts, TODAY)
+    assert rows[0].payoff_months == 25
+    assert rows[0].payoff_month == date(2028, 11, 1)
+    assert rows[1].payoff_month is None
+
+
+def test_compute_debts_debt_free_month_is_latest_payoff() -> None:
+    accounts = [
+        Debt(
+            id=1, name="Visa", balance=200_000, interest_rate=20.0, actual_payment=10_000
+        ),
+        Debt(
+            id=2, name="Car", balance=500_000, interest_rate=6.0, minimum_payment=15_000
+        ),
+    ]
+    _, totals = compute_debts(accounts, TODAY)
+    # Visa: 25 months -> Nov 2028; Car: 37 months -> Nov 2029
+    assert totals.debt_free_month == date(2029, 11, 1)
+
+
+def test_compute_debts_no_debt_free_month_if_any_balance_never_pays_off() -> None:
+    accounts = [
+        Debt(
+            id=1, name="Visa", balance=200_000, interest_rate=20.0, actual_payment=10_000
+        ),
+        Debt(id=2, name="Stuck", balance=100_000, interest_rate=24.0),
+    ]
+    _, totals = compute_debts(accounts, TODAY)
+    assert totals.debt_free_month is None
+
+
+def test_compute_debts_no_debt_free_month_when_nothing_is_owed() -> None:
+    accounts = [Debt(id=1, name="Paid card", balance=0, credit_limit=100_000)]
+    _, totals = compute_debts(accounts, TODAY)
+    assert totals.debt_free_month is None
 
 
 def test_group_expenses_by_category_orders_categories_case_insensitively_uncategorized_last() -> None:
@@ -736,3 +815,58 @@ def test_group_expenses_by_category_rounds_the_sum_not_each_item() -> None:
 
 def test_group_expenses_by_category_empty_list_yields_no_groups() -> None:
     assert group_expenses_by_category([]) == []
+
+
+def test_group_debts_puts_credit_cards_before_loans() -> None:
+    debts = [
+        Debt(id=1, name="Car", balance=500_000, interest_rate=6.0, kind="loan"),
+        Debt(id=2, name="Visa", balance=100_000, interest_rate=20.0, credit_limit=500_000),
+    ]
+    rows, _ = compute_debts(debts, TODAY)
+    groups = group_debts(rows)
+    assert [group.kind for group in groups] == ["credit_card", "loan"]
+    assert [row.debt.name for row in groups[0].rows] == ["Visa"]
+    assert [row.debt.name for row in groups[1].rows] == ["Car"]
+
+
+def test_group_debts_omits_empty_groups() -> None:
+    rows, _ = compute_debts([Debt(id=1, name="Car", balance=1, kind="loan")], TODAY)
+    assert [group.kind for group in group_debts(rows)] == ["loan"]
+
+
+def test_group_debts_orders_highest_interest_first_then_name() -> None:
+    debts = [
+        Debt(id=1, name="Low", balance=1_000, interest_rate=5.0),
+        Debt(id=2, name="Zed", balance=1_000, interest_rate=24.99),
+        Debt(id=3, name="Abe", balance=1_000, interest_rate=24.99),
+    ]
+    rows, _ = compute_debts(debts, TODAY)
+    assert [row.debt.name for row in group_debts(rows)[0].rows] == ["Abe", "Zed", "Low"]
+
+
+def test_group_debts_subtotals_and_card_usage() -> None:
+    debts = [
+        Debt(id=1, name="A", balance=345_012, credit_limit=1_500_000, actual_payment=25_000),
+        Debt(id=2, name="B", balance=50_000, credit_limit=500_000, minimum_payment=2_500),
+        Debt(id=3, name="Loan", balance=1_823_400, minimum_payment=21_000, kind="loan"),
+    ]
+    rows, _ = compute_debts(debts, TODAY)
+    cards, loans = group_debts(rows)
+    assert cards.balance == 395_012
+    assert cards.monthly_payment == 27_500
+    assert cards.credit_limit == 2_000_000
+    assert cards.utilization_percent == pytest.approx(395_012 / 2_000_000 * 100)
+    assert loans.balance == 1_823_400
+    assert loans.monthly_payment == 21_000
+    assert loans.utilization_percent is None
+
+
+def test_group_debts_card_usage_ignores_cards_without_a_limit() -> None:
+    debts = [
+        Debt(id=1, name="Tracked", balance=30_000, credit_limit=100_000),
+        Debt(id=2, name="No limit entered", balance=50_000),
+    ]
+    rows, _ = compute_debts(debts, TODAY)
+    (cards,) = group_debts(rows)
+    assert cards.balance == 80_000
+    assert cards.utilization_percent == pytest.approx(30.0)

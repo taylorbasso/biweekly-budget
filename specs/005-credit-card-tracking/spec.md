@@ -85,11 +85,11 @@ A user wants to know, given an entry's current balance, interest rate, and actua
 
 ### Functional Requirements
 
-- **FR-001**: System MUST provide a "Credit Cards" page, reachable from the app's main navigation, listing every stored credit card/loan entry in a table.
-- **FR-002**: Each entry MUST record: a name/label, current balance owed, annual interest rate, minimum payment amount, actual (planned) payment amount, and an optional credit limit.
-- **FR-003**: The table MUST display, per entry, at minimum: name, balance, minimum payment, actual payment, estimated payoff time, credit limit, and usage percentage (balance ÷ credit limit).
-- **FR-004**: The table MUST include a "Totals" row summing the balance, minimum payment, actual payment, and credit limit columns across all entries, plus an aggregate usage percentage (total balance ÷ total credit limit). The payoff time column MUST NOT be summed in the Totals row (it is not a meaningful aggregate).
-- **FR-014**: When an entry's credit limit is unset (zero), its usage percentage MUST display as not-applicable rather than 0% or an error; an unset limit MUST be excluded from the Totals row's aggregate usage percentage denominator only insofar as it contributes 0 to the credit-limit sum (i.e. aggregate usage is always total balance ÷ total credit limit, computed once, not an average of per-row percentages).
+- **FR-001**: System MUST provide a "Debt" page (at `/debt`; the old `/credit-cards` address redirects there), reachable from the app's main navigation, listing every stored credit card/loan entry in a table grouped by type: credit cards first, then loans, each group ordered by interest rate (highest first, then name). *(Amended 2026-10-20: renamed from "Credit Cards"; grouping added.)*
+- **FR-002**: Each entry MUST record: a type (credit card or loan), a name/label, current balance owed, annual interest rate, minimum payment amount, actual (planned) payment amount, and — for credit cards only — an optional credit limit. A loan MUST NOT have a credit limit. *(Amended 2026-10-20: type added.)*
+- **FR-003**: The table MUST display, per entry: name, balance, interest rate, monthly payment (the actual payment if set, otherwise the minimum, with the minimum shown alongside when they differ), estimated payoff time with its month, and — for credit cards with a limit — usage percentage (balance ÷ credit limit) and the limit. *(Amended 2026-10-20: payment columns combined into what is actually paid.)*
+- **FR-004**: The page MUST show, as a headline and in a "Total" row, the total balance and total monthly payment (the sum of what is actually paid per FR-003; total minimum shown alongside), plus — when every balance pays off at current payments — the month the last one is paid off ("debt-free by"). Each type group MUST show its subtotal balance and payment; the credit card group MUST show aggregate usage. The payoff time column MUST NOT be summed (it is not a meaningful aggregate). *(Amended 2026-10-20: payment total counts the minimum where no actual payment is set; usage moved to the credit card group.)*
+- **FR-014**: When an entry has no credit limit (any loan, or a card with none entered), no usage percentage is shown for it, and its balance MUST NOT count toward aggregate usage. Aggregate usage is the summed balance of entries that have a limit ÷ their summed limits, computed once — not an average of per-row percentages. *(Amended 2026-10-20: previously total balance ÷ total limit, which counted loan balances against card limits and could show e.g. 144.6% when real card usage was 23%.)*
 - **FR-005**: Users MUST be able to add a new entry via a form capturing all fields in FR-002.
 - **FR-006**: Users MUST be able to edit any field of an existing entry.
 - **FR-007**: Users MUST be able to delete an existing entry, with a confirmation step to prevent accidental deletion.
@@ -102,7 +102,7 @@ A user wants to know, given an entry's current balance, interest rate, and actua
 
 ### Key Entities
 
-- **CreditAccount**: Represents a single credit card or loan being tracked. Attributes: name/label, current balance (integer cents), annual interest rate (percentage), minimum payment (integer cents), actual/planned payment (integer cents), credit limit (integer cents, optional — 0 means "not tracked"). Payoff time and usage percentage are computed values, not stored. Independent of PaySchedule, RecurringExpense, and any other existing entity — no relationship to pay cycles.
+- **Debt** (formerly CreditAccount; table `debt`): Represents a single credit card or loan being tracked. Attributes: type (`credit_card` or `loan`), name/label, current balance (integer cents), annual interest rate (percentage), minimum payment (integer cents), actual/planned payment (integer cents), credit limit (integer cents, optional — 0 means "not tracked"). Payoff time and usage percentage are computed values, not stored. Independent of PaySchedule, RecurringExpense, and any other existing entity — no relationship to pay cycles.
 
 ## Success Criteria *(mandatory)*
 

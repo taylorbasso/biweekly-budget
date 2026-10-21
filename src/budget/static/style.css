@@ -31,6 +31,11 @@
   box-sizing: border-box;
 }
 
+/* Keep the hidden attribute working on elements given a display (e.g. labels). */
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -133,8 +138,9 @@ main:has(> form:not(.cycle-select-form)) {
   max-width: 468px;
 }
 
-/* Expenses: five aligned columns need more room than the default column. */
-main:has(.expenses-table) {
+/* Wide tables (Expenses, Debt) need more room than the default column. */
+main:has(.expenses-table),
+main:has(.debt-table) {
   max-width: 880px;
 }
 
@@ -290,6 +296,18 @@ form {
   font-variant-numeric: tabular-nums;
 }
 
+.nowrap {
+  white-space: nowrap;
+}
+
+/* Small grey line under a cell's main value, e.g. "min $95.00". */
+.cell-sub {
+  display: block;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
 /* Thin bar showing a percentage, placed before the number. */
 .pct-bar {
   display: inline-block;
@@ -414,6 +432,26 @@ label .hint {
 .input-prefix input {
   width: 100%;
   padding-left: 24px;
+}
+
+/* Same, with the symbol on the right, e.g. "%" for rates. */
+.input-suffix {
+  position: relative;
+  display: flex;
+}
+
+.input-suffix > span {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.input-suffix input {
+  width: 100%;
+  padding-right: 28px;
 }
 
 .form-actions {
@@ -856,8 +894,8 @@ nav form.signout button:hover {
     text-align: right;
   }
 
+  /* Details stack in the left column (rows 2, 3, ...) beside the actions. */
   .card-detail {
-    grid-row: 2;
     grid-column: 1;
     align-self: center;
     color: var(--muted);
@@ -868,11 +906,18 @@ nav form.signout button:hover {
     text-align: left;
   }
 
+  .card-detail .cell-sub {
+    display: inline-block;
+    margin-left: 4px;
+    white-space: nowrap;
+  }
+
   .card-detail[data-label]::before {
     content: attr(data-label) " ";
   }
 
-  .card-table tfoot th:empty {
+  .card-table tfoot th:empty,
+  .card-table tr.category-row > :empty {
     display: none;
   }
 

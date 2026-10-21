@@ -9,7 +9,7 @@ from psycopg.rows import dict_row
 
 from budget.models import (
     Account,
-    CreditAccount,
+    Debt,
     PaySchedule,
     RecurringExpense,
     User,
@@ -238,8 +238,8 @@ def delete_account(conn: Connection, user_id: int, account_id: int) -> None:
     conn.commit()
 
 
-def _row_to_credit_account(row: dict[str, Any]) -> CreditAccount:
-    return CreditAccount(
+def _row_to_debt(row: dict[str, Any]) -> Debt:
+    return Debt(
         id=row["id"],
         name=row["name"],
         balance=row["balance"],
@@ -247,46 +247,48 @@ def _row_to_credit_account(row: dict[str, Any]) -> CreditAccount:
         minimum_payment=row["minimum_payment"],
         actual_payment=row["actual_payment"],
         credit_limit=row["credit_limit"],
+        kind=row["kind"],
     )
 
 
-def list_credit_accounts(conn: Connection, user_id: int) -> list[CreditAccount]:
+def list_debts(conn: Connection, user_id: int) -> list[Debt]:
     rows = conn.execute(
         "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment, "
-        "credit_limit FROM credit_account WHERE user_id = %s ORDER BY id",
+        "credit_limit, kind FROM debt WHERE user_id = %s ORDER BY id",
         (user_id,),
     ).fetchall()
-    return [_row_to_credit_account(row) for row in rows]
+    return [_row_to_debt(row) for row in rows]
 
 
-def get_credit_account(
-    conn: Connection, user_id: int, credit_account_id: int
-) -> CreditAccount | None:
+def get_debt(
+    conn: Connection, user_id: int, debt_id: int
+) -> Debt | None:
     row = conn.execute(
         "SELECT id, name, balance, interest_rate, minimum_payment, actual_payment, "
-        "credit_limit FROM credit_account WHERE id = %s AND user_id = %s",
-        (credit_account_id, user_id),
+        "credit_limit, kind FROM debt WHERE id = %s AND user_id = %s",
+        (debt_id, user_id),
     ).fetchone()
     if row is None:
         return None
-    return _row_to_credit_account(row)
+    return _row_to_debt(row)
 
 
-def create_credit_account(
-    conn: Connection, user_id: int, credit_account: CreditAccount
+def create_debt(
+    conn: Connection, user_id: int, debt: Debt
 ) -> int:
     cursor = conn.execute(
-        "INSERT INTO credit_account "
+        "INSERT INTO debt "
         "(user_id, name, balance, interest_rate, minimum_payment, actual_payment, "
-        "credit_limit) VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "credit_limit, kind) VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
             user_id,
-            credit_account.name,
-            credit_account.balance,
-            credit_account.interest_rate,
-            credit_account.minimum_payment,
-            credit_account.actual_payment,
-            credit_account.credit_limit,
+            debt.name,
+            debt.balance,
+            debt.interest_rate,
+            debt.minimum_payment,
+            debt.actual_payment,
+            debt.credit_limit,
+            debt.kind,
         ),
     )
     conn.commit()
@@ -295,35 +297,36 @@ def create_credit_account(
     return int(row["id"])
 
 
-def update_credit_account(
+def update_debt(
     conn: Connection,
     user_id: int,
-    credit_account_id: int,
-    credit_account: CreditAccount,
+    debt_id: int,
+    debt: Debt,
 ) -> None:
     conn.execute(
-        "UPDATE credit_account SET name = %s, balance = %s, interest_rate = %s, "
-        "minimum_payment = %s, actual_payment = %s, credit_limit = %s "
+        "UPDATE debt SET name = %s, balance = %s, interest_rate = %s, "
+        "minimum_payment = %s, actual_payment = %s, credit_limit = %s, kind = %s "
         "WHERE id = %s AND user_id = %s",
         (
-            credit_account.name,
-            credit_account.balance,
-            credit_account.interest_rate,
-            credit_account.minimum_payment,
-            credit_account.actual_payment,
-            credit_account.credit_limit,
-            credit_account_id,
+            debt.name,
+            debt.balance,
+            debt.interest_rate,
+            debt.minimum_payment,
+            debt.actual_payment,
+            debt.credit_limit,
+            debt.kind,
+            debt_id,
             user_id,
         ),
     )
     conn.commit()
 
 
-def delete_credit_account(
-    conn: Connection, user_id: int, credit_account_id: int
+def delete_debt(
+    conn: Connection, user_id: int, debt_id: int
 ) -> None:
     conn.execute(
-        "DELETE FROM credit_account WHERE id = %s AND user_id = %s",
-        (credit_account_id, user_id),
+        "DELETE FROM debt WHERE id = %s AND user_id = %s",
+        (debt_id, user_id),
     )
     conn.commit()

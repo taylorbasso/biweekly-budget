@@ -34,7 +34,10 @@ CREATE TABLE IF NOT EXISTS account (
 );
 CREATE INDEX IF NOT EXISTS idx_account_user_id ON account(user_id);
 
-CREATE TABLE IF NOT EXISTS credit_account (
+-- Replaced by the debt table (2026-10-20); never held production data.
+DROP TABLE IF EXISTS credit_account;
+
+CREATE TABLE IF NOT EXISTS debt (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
@@ -42,6 +45,7 @@ CREATE TABLE IF NOT EXISTS credit_account (
     interest_rate DOUBLE PRECISION NOT NULL DEFAULT 0,
     minimum_payment BIGINT NOT NULL DEFAULT 0,
     actual_payment BIGINT NOT NULL DEFAULT 0,
-    credit_limit BIGINT NOT NULL DEFAULT 0
+    credit_limit BIGINT NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL
 );
-CREATE INDEX IF NOT EXISTS idx_credit_account_user_id ON credit_account(user_id);
+CREATE INDEX IF NOT EXISTS idx_debt_user_id ON debt(user_id);

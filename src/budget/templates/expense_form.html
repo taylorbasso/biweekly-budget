@@ -25,7 +25,7 @@
   </label>
   <label>
     Repeats
-    <select name="recurrence_type" id="recurrence-type">
+    <select name="recurrence_type" data-toggles-fields>
       <option value="day_of_month" {% if values.recurrence_type == "day_of_month" %}selected{% endif %}>
         Monthly
       </option>
@@ -37,7 +37,7 @@
       </option>
     </select>
   </label>
-  <div data-recurrence-for="day_of_month">
+  <div data-show-for="day_of_month">
     <label>
       Day of the month
       <span class="hint">1–31. Days 29–31 fall on the last day in shorter months.</span>
@@ -45,7 +45,7 @@
              value="{{ values.recurrence_value if values.recurrence_type == 'day_of_month' else '' }}">
     </label>
   </div>
-  <div data-recurrence-for="day_of_week">
+  <div data-show-for="day_of_week">
     <label>
       Day of the week
       <select name="recurrence_value">
@@ -57,7 +57,7 @@
       </select>
     </label>
   </div>
-  <div data-recurrence-for="biweekly">
+  <div data-show-for="biweekly">
     <label>
       A due date
       <span class="hint">Any one due date, past or upcoming. Repeats every 2 weeks from it.</span>
@@ -88,5 +88,5 @@
     <a href="/expenses">Cancel</a>
   </div>
 </form>
-<script src="{{ url_for('static', filename='expense_form.js') }}" defer></script>
+<script src="{{ url_for('static', filename='field_toggle.js') }}" defer></script>
 {% endblock %}
