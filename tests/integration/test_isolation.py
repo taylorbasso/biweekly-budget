@@ -68,7 +68,6 @@ def test_other_account_cannot_change_or_delete_by_id(
     attempts = [
         f"/expenses/{ids['expense']}/edit",
         f"/expenses/{ids['expense']}/delete",
-        f"/expenses/{ids['expense']}/toggle-essential",
         f"/runway/accounts/{ids['savings']}/edit",
         f"/runway/accounts/{ids['savings']}/delete",
         f"/credit-cards/{ids['card']}/edit",

@@ -2,8 +2,9 @@
 {% block title %}Runway — Biweekly Budget{% endblock %}
 {% block content %}
 <h1>Runway</h1>
-<p>Mark expenses "Essential" on the <a href="/expenses">Expenses</a> page, then add your
-accounts here to see how many months your money would cover just the essentials.</p>
+<p>Mark expenses "Essential" when you add or edit them on the <a href="/expenses">Expenses</a>
+page, then add your accounts here to see how many months your money would cover just the
+essentials.</p>
 
 <h2>Essential Expenses</h2>
 {% if essential_rows %}
@@ -44,7 +45,7 @@ accounts here to see how many months your money would cover just the essentials.
 </table>
 </div>
 {% else %}
-<p>No expenses marked essential yet — mark some on the <a href="/expenses">Expenses</a> page.</p>
+<p>No expenses marked essential yet — edit an expense on the <a href="/expenses">Expenses</a> page and tick "Essential".</p>
 {% endif %}
 
 <h2>Accounts</h2>
@@ -67,10 +68,10 @@ accounts here to see how many months your money would cover just the essentials.
       <td>${{ account.balance | usd }}</td>
       <td>{{ account.penalty_tax_percent }}%</td>
       <td class="expense-actions">
-        <a class="btn-edit" href="/runway/accounts/{{ account.id }}/edit">Edit</a>
+        <a class="btn-edit" href="/runway/accounts/{{ account.id }}/edit" aria-label="Edit {{ account.name }}" title="Edit"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></a>
         <form method="post" action="/runway/accounts/{{ account.id }}/delete">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-          <button type="submit">Remove</button>
+          <button type="submit" class="btn-remove" aria-label="Remove {{ account.name }}" title="Remove" data-confirm="Remove “{{ account.name }}”?" onclick="return confirm(this.dataset.confirm)"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg></button>
         </form>
       </td>
     </tr>
@@ -92,8 +93,8 @@ accounts here to see how many months your money would cover just the essentials.
 
 <h2>Result</h2>
 {% if result.months is none %}
-<p>No essential expenses selected — mark at least one expense essential on the
-<a href="/expenses">Expenses</a> page to see a runway.</p>
+<p>No essential expenses selected — edit an expense on the <a href="/expenses">Expenses</a>
+page and tick "Essential" to see a runway.</p>
 {% else %}
 <p><strong>{{ "%.2f"|format(result.months) }} months</strong></p>
 {% endif %}

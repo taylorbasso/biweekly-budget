@@ -11,12 +11,12 @@ from budget import db
 from budget.app import get_db
 from budget.auth import login_manager
 from budget.calculations import (
-    UNCATEGORIZED,
     compute_annual_cost_breakdown,
     compute_breakdown,
     compute_credit_cards,
     compute_leftover,
     compute_runway,
+    group_expenses_by_category,
     monthly_equivalent,
     occurrences_in_cycle,
 )
@@ -46,13 +46,6 @@ def _user_id() -> int:
 
 
 CYCLE_OPTIONS_COUNT = 10
-
-RECURRENCE_TYPE_ORDER: tuple[str, ...] = ("day_of_month", "day_of_week", "biweekly")
-RECURRENCE_TYPE_LABELS: dict[str, str] = {
-    "day_of_month": "Day of Month",
-    "day_of_week": "Day of Week",
-    "biweekly": "Every 14 Days",
-}
 
 
 def _existing_categories(conn: db.Connection) -> list[str]:
@@ -99,6 +92,48 @@ def _expense_from_form(expense_id: int | None) -> RecurringExpense:
         recurrence_anchor=recurrence_anchor,
         essential=essential,
     )
+
+
+def _expense_form_values(expense: RecurringExpense | None) -> dict[str, str | bool]:
+    """Field values for expense_form.html, from a saved expense (or blank for a new one)."""
+    if expense is None:
+        return {
+            "name": "",
+            "amount": "",
+            "recurrence_type": "day_of_month",
+            "recurrence_value": "",
+            "recurrence_anchor": "",
+            "category": "",
+            "essential": False,
+        }
+    return {
+        "name": expense.name,
+        "amount": f"{expense.amount // 100}.{expense.amount % 100:02d}",
+        "recurrence_type": expense.recurrence_type,
+        "recurrence_value": str(expense.recurrence_value),
+        "recurrence_anchor": (
+            expense.recurrence_anchor.isoformat() if expense.recurrence_anchor else ""
+        ),
+        "category": expense.category or "",
+        "essential": expense.essential,
+    }
+
+
+def _expense_form_values_from_request() -> dict[str, str | bool]:
+    """What the user just submitted, so a rejected form comes back as they typed it."""
+    fields = (
+        "name",
+        "amount",
+        "recurrence_type",
+        "recurrence_value",
+        "recurrence_anchor",
+        "category",
+    )
+    values: dict[str, str | bool] = {
+        field: request.form.get(field, "") for field in fields
+    }
+    values["essential"] = request.form.get("essential") == "on"
+    return values
 
 
 @bp.route("/")
@@ -151,36 +186,11 @@ def pay_schedule() -> ResponseReturnValue:
     return redirect(url_for("budget.pay_schedule"))
 
 
-def _group_by_category(
-    expenses: list[RecurringExpense],
-) -> list[tuple[str, list[RecurringExpense]]]:
-    ordered = sorted(
-        expenses, key=lambda expense: (expense.category or UNCATEGORIZED, expense.name)
-    )
-    groups: list[tuple[str, list[RecurringExpense]]] = []
-    for expense in ordered:
-        category = expense.category or UNCATEGORIZED
-        if groups and groups[-1][0] == category:
-            groups[-1][1].append(expense)
-        else:
-            groups.append((category, [expense]))
-    return groups
-
-
 @bp.route("/expenses")
 def expenses_list() -> str:
     conn = get_db()
-    expenses = db.list_expenses(conn, _user_id())
-    sections: list[tuple[str, list[tuple[str, list[RecurringExpense]]]]] = []
-    for recurrence_type in RECURRENCE_TYPE_ORDER:
-        groups = _group_by_category(
-            [e for e in expenses if e.recurrence_type == recurrence_type]
-        )
-        if groups:
-            sections.append((RECURRENCE_TYPE_LABELS[recurrence_type], groups))
-    return render_template(
-        "expenses_list.html", sections=sections, has_expenses=bool(expenses)
-    )
+    groups = group_expenses_by_category(db.list_expenses(conn, _user_id()))
+    return render_template("expenses_list.html", groups=groups)
 
 
 @bp.route("/annual-cost")
@@ -225,26 +235,6 @@ def runway() -> str:
         total_account_balance=total_account_balance,
         total_monthly_burn=total_monthly_burn,
     )
-
-
-@bp.route("/expenses/<int:expense_id>/toggle-essential", methods=["POST"])
-def toggle_essential(expense_id: int) -> ResponseReturnValue:
-    conn = get_db()
-    expense = db.get_expense(conn, _user_id(), expense_id)
-    if expense is None:
-        abort(404)
-    updated = RecurringExpense(
-        id=expense.id,
-        name=expense.name,
-        amount=expense.amount,
-        recurrence_type=expense.recurrence_type,
-        recurrence_value=expense.recurrence_value,
-        category=expense.category,
-        recurrence_anchor=expense.recurrence_anchor,
-        essential=not expense.essential,
-    )
-    db.update_expense(conn, _user_id(), expense_id, updated)
-    return redirect(url_for("budget.expenses_list"))
 
 
 @bp.route("/runway/accounts/new", methods=["GET"])
@@ -421,7 +411,7 @@ def expense_new() -> str:
     conn = get_db()
     return render_template(
         "expense_form.html",
-        expense=None,
+        values=_expense_form_values(None),
         error=None,
         action="/expenses",
         categories=_existing_categories(conn),
@@ -437,7 +427,7 @@ def expense_create() -> ResponseReturnValue:
         return (
             render_template(
                 "expense_form.html",
-                expense=None,
+                values=_expense_form_values_from_request(),
                 error=str(exc),
                 action="/expenses",
                 categories=_existing_categories(conn),
@@ -456,7 +446,7 @@ def expense_edit(expense_id: int) -> str:
         abort(404)
     return render_template(
         "expense_form.html",
-        expense=expense,
+        values=_expense_form_values(expense),
         error=None,
         action=f"/expenses/{expense_id}/edit",
         categories=_existing_categories(conn),
@@ -474,7 +464,7 @@ def expense_update(expense_id: int) -> ResponseReturnValue:
         return (
             render_template(
                 "expense_form.html",
-                expense=None,
+                values=_expense_form_values_from_request(),
                 error=str(exc),
                 action=f"/expenses/{expense_id}/edit",
                 categories=_existing_categories(conn),

@@ -7,15 +7,11 @@
   <p class="error">{{ error }}</p>
 {% endif %}
 
-{% if pay_schedule %}
-  <p>Current anchor date: {{ pay_schedule.anchor_date.isoformat() }}</p>
-  <p>Current amount: ${{ pay_schedule.amount | usd }}</p>
-{% endif %}
-
 <form method="post" action="/pay-schedule">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
-    Anchor date
+    Pay date
+    <span class="hint">Any past payday. Paydays repeat every 14 days from it.</span>
     <input type="date" name="anchor_date"
            value="{{ pay_schedule.anchor_date.isoformat() if pay_schedule else '' }}" required>
   </label>

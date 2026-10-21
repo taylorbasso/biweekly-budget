@@ -20,17 +20,17 @@ the app knows which bills I'd still have to pay if my income stopped.
 expenses, there is no meaningful "bare minimum" burn rate to compute a runway against.
 This is the foundation every other capability in this feature depends on.
 
-**Independent Test**: Can be fully tested by opening the Runway tab, toggling the
-"Essential" checkbox on a few expenses, reloading the page, and confirming the checked
-state persisted.
+**Independent Test**: Can be fully tested by editing a few expenses, ticking
+"Essential" in the expense form and saving, then confirming those expenses show an
+"Essential" tag on the Expenses list and count toward the Runway tab's burn rate.
 
 **Acceptance Scenarios**:
 
-1. **Given** a recurring expense that is not marked essential, **When** the user checks
-   its "Essential" checkbox on the Runway tab, **Then** the expense is immediately
-   marked essential and included in the essential burn-rate calculation.
-2. **Given** an expense marked essential, **When** the user unchecks it, **Then** it is
-   immediately excluded from the essential burn-rate calculation.
+1. **Given** a recurring expense that is not marked essential, **When** the user ticks
+   "Essential" in its add/edit expense form and saves, **Then** the expense is marked
+   essential and included in the essential burn-rate calculation.
+2. **Given** an expense marked essential, **When** the user unticks "Essential" in its
+   edit form and saves, **Then** it is excluded from the essential burn-rate calculation.
 3. **Given** an expense was marked essential in a previous visit, **When** the user
    reopens the Runway tab (or any other tab that lists expenses), **Then** its essential
    status is still reflected as previously set.
@@ -126,8 +126,10 @@ each one's individual haircut.
   Cost tabs.
 - **FR-002**: System MUST persist an "essential" flag on every recurring expense,
   defaulting to not-essential for existing and newly created expenses.
-- **FR-003**: System MUST let the user toggle an expense's essential flag directly from
-  the Runway tab, persisting the change immediately without a separate save step.
+- **FR-003**: System MUST let the user set an expense's essential flag in the add/edit
+  expense form, and MUST show which expenses are essential (an "Essential" tag) on the
+  Expenses list. *(Amended 2026-10-20: previously an inline checkbox that saved
+  immediately; moved into the form so there is one place to change it.)*
 - **FR-004**: System MUST let the user create named accounts, each with a balance and an
   optional penalty/tax percentage (0–100, default 0), and persist them.
 - **FR-005**: System MUST let the user edit and delete existing accounts.

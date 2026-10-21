@@ -5,9 +5,9 @@ routes are unchanged.
 
 ## `GET /runway`
 
-Renders the Runway tab: every recurring expense with an "Essential" checkbox, every
-account with its balance/penalty-tax% and edit/delete links, an "Add account" link, and
-the computed runway result.
+Renders the Runway tab: every essential expense (read-only) with its monthly
+equivalent, every account with its balance/penalty-tax% and edit/delete links, an "Add
+account" link, and the computed runway result.
 
 **Response 200**: `runway.html` template, given:
 - `expenses: list[RecurringExpense]` (all expenses, each rendered with its current
@@ -17,16 +17,12 @@ the computed runway result.
 
 No query parameters; always reflects live DB state (FR-013).
 
-## `POST /runway/expenses/<int:expense_id>/toggle-essential`
+## ~~`POST /runway/expenses/<int:expense_id>/toggle-essential`~~ (removed 2026-10-20)
 
-Flips the `essential` flag on the given expense and persists it immediately.
-
-- **404** if `expense_id` doesn't exist (matches existing `expense_edit`/`expense_delete`
-  behavior).
-- **302** redirect to `GET /runway` on success.
-- Body: none required (checkbox state is inferred by "this route always flips the
-  current value" — the per-row form only exists to trigger the POST, not to carry a
-  value, mirroring the existing single-purpose delete-button forms on `/expenses`).
+Removed with the FR-003 amendment. The `essential` flag is now set only through the
+existing expense forms (`POST /expenses`, `POST /expenses/<id>/edit`, checkbox field
+`essential`). The route had since moved to `/expenses/<id>/toggle-essential`; both paths
+are gone.
 
 ## `GET /runway/accounts/new`
 

@@ -137,7 +137,7 @@ def test_home_page_without_pay_schedule_renders_no_chart(app, client: FlaskClien
     assert response.status_code == 200
     body = response.get_data(as_text=True)
     assert "Set up your pay schedule" in body
-    assert "<svg" not in body
+    assert "cycle-chart" not in body
 
 
 def test_home_page_overspent_cycle_omits_leftover_slice(app, client: FlaskClient) -> None:
@@ -184,32 +184,10 @@ def test_annual_cost_page_empty_state_shows_zero_grand_total(
     assert "$0.00" in body
 
 
-def test_toggle_essential_persists_and_redirects(app, client: FlaskClient) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-
-    response = client.post(f"/expenses/{expense_id}/toggle-essential")
-    assert response.status_code == 302
-
-    with app.app_context():
-        conn = get_db()
-        assert db.get_expense(conn, _owner_id(app), expense_id).essential is True
-
-    client.post(f"/expenses/{expense_id}/toggle-essential")
-    with app.app_context():
-        conn = get_db()
-        assert db.get_expense(conn, _owner_id(app), expense_id).essential is False
-
-
-def test_toggle_essential_unknown_expense_404s(app, client: FlaskClient) -> None:
-    response = client.post("/expenses/999/toggle-essential")
-    assert response.status_code == 404
-
-
 def test_runway_single_account_matches_quickstart_scenario_a(
     app, client: FlaskClient
 ) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-    client.post(f"/expenses/{expense_id}/toggle-essential")
+    _seed_expense(app, "Rent", 200_000, "day_of_month", 1, essential=True)
     client.post(
         "/runway/accounts",
         data={"name": "Cash", "balance": "7060.00", "penalty_tax_percent": "0"},
@@ -225,8 +203,7 @@ def test_runway_single_account_matches_quickstart_scenario_a(
 def test_runway_multiple_accounts_matches_quickstart_scenario_b(
     app, client: FlaskClient
 ) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-    client.post(f"/expenses/{expense_id}/toggle-essential")
+    _seed_expense(app, "Rent", 200_000, "day_of_month", 1, essential=True)
     client.post(
         "/runway/accounts",
         data={"name": "Cash", "balance": "2000.00", "penalty_tax_percent": "0"},
@@ -254,8 +231,7 @@ def test_runway_no_essential_expenses_shows_message(app, client: FlaskClient) ->
 
 
 def test_runway_no_accounts_shows_zero_months(app, client: FlaskClient) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-    client.post(f"/expenses/{expense_id}/toggle-essential")
+    _seed_expense(app, "Rent", 200_000, "day_of_month", 1, essential=True)
 
     response = client.get("/runway")
 
@@ -293,8 +269,7 @@ def test_account_edit_unknown_account_404s(app, client: FlaskClient) -> None:
 
 
 def test_account_delete_removes_contribution(app, client: FlaskClient) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-    client.post(f"/expenses/{expense_id}/toggle-essential")
+    _seed_expense(app, "Rent", 200_000, "day_of_month", 1, essential=True)
     account_id = _seed_account(app, "Cash", 706_000, 0)
 
     delete_response = client.post(f"/runway/accounts/{account_id}/delete")
@@ -335,16 +310,7 @@ def test_account_create_out_of_range_percent_shows_inline_error(
     assert "error" in response.get_data(as_text=True).lower()
 
 
-def test_toggle_essential_redirects_to_expenses_list(app, client: FlaskClient) -> None:
-    expense_id = _seed_expense(app, "Rent", 200_000, "day_of_month", 1)
-
-    response = client.post(f"/expenses/{expense_id}/toggle-essential")
-
-    assert response.status_code == 302
-    assert response.headers["Location"] == "/expenses"
-
-
-def test_expenses_page_shows_essential_checkbox_state(
+def test_expenses_page_tags_essential_expenses_without_inline_toggle(
     app, client: FlaskClient
 ) -> None:
     _seed_expense(app, "Rent", 200_000, "day_of_month", 1, essential=True)
@@ -352,8 +318,83 @@ def test_expenses_page_shows_essential_checkbox_state(
 
     body = client.get("/expenses").get_data(as_text=True)
 
-    assert "essential-toggle" in body
-    assert 'action="/expenses/1/toggle-essential"' in body
+    assert body.count('class="tag"') == 1
+    assert "toggle-essential" not in body
+
+
+def test_expenses_page_groups_by_category_with_monthly_totals(
+    app, client: FlaskClient
+) -> None:
+    _seed_expense(app, "Rent", 145_000, "day_of_month", 1, category="Housing")
+    _seed_expense(app, "Groceries", 15_000, "day_of_week", 5, category="Food")
+    _seed_expense(app, "Streaming", 1_500, "day_of_month", 20)
+
+    body = client.get("/expenses").get_data(as_text=True)
+
+    assert body.index("Food") < body.index("Housing") < body.index("Uncategorized")
+    assert "$650.00/mo" in body
+    assert "$1,450.00/mo" in body
+    assert "Day of Month" not in body
+
+
+def test_expense_create_error_keeps_what_was_typed(app, client: FlaskClient) -> None:
+    response = client.post(
+        "/expenses",
+        data={
+            "name": "Gym",
+            "amount": "45.00",
+            "recurrence_type": "day_of_month",
+            "recurrence_value": "",
+            "category": "Health",
+            "essential": "on",
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert 'value="Gym"' in body
+    assert 'value="45.00"' in body
+    assert 'value="Health"' in body
+    assert 'name="essential" checked' in body
+    assert "Add expense</button>" in body
+
+
+def test_expense_edit_error_stays_in_edit_mode_with_submitted_values(
+    app, client: FlaskClient
+) -> None:
+    expense_id = _seed_expense(
+        app, "Rent", 145_000, "day_of_month", 1, category="Housing"
+    )
+
+    response = client.post(
+        f"/expenses/{expense_id}/edit",
+        data={
+            "name": "Rent (new place)",
+            "amount": "0",
+            "recurrence_type": "day_of_month",
+            "recurrence_value": "3",
+            "category": "Housing",
+        },
+    )
+
+    assert response.status_code == 400
+    body = response.get_data(as_text=True)
+    assert "Edit Expense" in body
+    assert "Save changes</button>" in body
+    assert 'value="Rent (new place)"' in body
+    assert 'value="3"' in body
+    with app.app_context():
+        conn = get_db()
+        saved = db.get_expense(conn, _owner_id(app), expense_id)
+    assert saved is not None and saved.name == "Rent" and saved.amount == 145_000
+
+
+def test_expense_edit_form_shows_amount_with_cents(app, client: FlaskClient) -> None:
+    expense_id = _seed_expense(app, "Fee", 5, "day_of_month", 1)
+
+    body = client.get(f"/expenses/{expense_id}/edit").get_data(as_text=True)
+
+    assert 'value="0.05"' in body
 
 
 def test_expense_create_form_can_set_essential(app, client: FlaskClient) -> None:

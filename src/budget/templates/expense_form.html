@@ -1,7 +1,8 @@
 {% extends "layout.html" %}
-{% block title %}{{ "Edit" if expense else "Add" }} Expense — Biweekly Budget{% endblock %}
+{% set editing = action != "/expenses" %}
+{% block title %}{{ "Edit" if editing else "Add" }} Expense — Biweekly Budget{% endblock %}
 {% block content %}
-<h1>{{ "Edit" if expense else "Add" }} Expense</h1>
+<h1>{{ "Edit" if editing else "Add" }} Expense</h1>
 
 {% if error %}
   <p class="error">{{ error }}</p>
@@ -11,40 +12,45 @@
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label>
     Name
-    <input type="text" name="name" value="{{ expense.name if expense else '' }}" required>
+    <input type="text" name="name" placeholder="e.g. Rent"
+           value="{{ values.name }}" required>
   </label>
   <label>
-    Amount (dollars)
-    <input type="number" step="0.01" name="amount"
-           value="{{ '%.2f'|format(expense.amount / 100) if expense else '' }}" required>
+    Amount
+    <span class="input-prefix">
+      <span aria-hidden="true">$</span>
+      <input type="number" step="0.01" min="0.01" inputmode="decimal" name="amount"
+             value="{{ values.amount }}" required>
+    </span>
   </label>
   <label>
-    Recurrence type
+    Repeats
     <select name="recurrence_type" id="recurrence-type">
-      <option value="day_of_month" {% if expense and expense.recurrence_type == "day_of_month" %}selected{% endif %}>
-        Day of month
+      <option value="day_of_month" {% if values.recurrence_type == "day_of_month" %}selected{% endif %}>
+        Monthly
       </option>
-      <option value="day_of_week" {% if expense and expense.recurrence_type == "day_of_week" %}selected{% endif %}>
-        Day of week
+      <option value="day_of_week" {% if values.recurrence_type == "day_of_week" %}selected{% endif %}>
+        Weekly
       </option>
-      <option value="biweekly" {% if expense and expense.recurrence_type == "biweekly" %}selected{% endif %}>
-        Every 14 days (biweekly)
+      <option value="biweekly" {% if values.recurrence_type == "biweekly" %}selected{% endif %}>
+        Every 2 weeks
       </option>
     </select>
   </label>
   <div data-recurrence-for="day_of_month">
     <label>
-      Day of month
-      <input type="number" name="recurrence_value" min="1" max="31"
-             value="{{ expense.recurrence_value if expense and expense.recurrence_type == 'day_of_month' else '' }}">
+      Day of the month
+      <span class="hint">1–31. Days 29–31 fall on the last day in shorter months.</span>
+      <input type="number" name="recurrence_value" min="1" max="31" inputmode="numeric"
+             value="{{ values.recurrence_value if values.recurrence_type == 'day_of_month' else '' }}">
     </label>
   </div>
   <div data-recurrence-for="day_of_week">
     <label>
-      Day of week
+      Day of the week
       <select name="recurrence_value">
         {% for value, day_name in [(0, "Monday"), (1, "Tuesday"), (2, "Wednesday"), (3, "Thursday"), (4, "Friday"), (5, "Saturday"), (6, "Sunday")] %}
-        <option value="{{ value }}" {% if expense and expense.recurrence_type == "day_of_week" and expense.recurrence_value == value %}selected{% endif %}>
+        <option value="{{ value }}" {% if values.recurrence_type == "day_of_week" and values.recurrence_value == value|string %}selected{% endif %}>
           {{ day_name }}
         </option>
         {% endfor %}
@@ -53,26 +59,34 @@
   </div>
   <div data-recurrence-for="biweekly">
     <label>
-      Anchor date (any past due date on the biweekly schedule)
+      A due date
+      <span class="hint">Any one due date, past or upcoming. Repeats every 2 weeks from it.</span>
       <input type="date" name="recurrence_anchor"
-             value="{{ expense.recurrence_anchor.isoformat() if expense and expense.recurrence_anchor else '' }}">
+             value="{{ values.recurrence_anchor }}">
     </label>
   </div>
   <label>
     Category (optional)
-    <input type="text" name="category" list="category-options"
-           value="{{ expense.category if expense else '' }}">
+    <span class="hint">Leave blank to file it under "Uncategorized".</span>
+    <input type="text" name="category" list="category-options" placeholder="e.g. Housing"
+           value="{{ values.category }}">
     <datalist id="category-options">
       {% for category in categories %}
       <option value="{{ category }}">
       {% endfor %}
     </datalist>
   </label>
-  <label>
-    <input type="checkbox" name="essential" {% if expense and expense.essential %}checked{% endif %}>
-    Essential (would still need to pay this if income stopped)
+  <label class="checkbox-label">
+    <input type="checkbox" name="essential" {% if values.essential %}checked{% endif %}>
+    <span>
+      Essential
+      <span class="hint">You'd still have to pay this if your income stopped.</span>
+    </span>
   </label>
-  <button type="submit">Save</button>
+  <div class="form-actions">
+    <button type="submit">{{ "Save changes" if editing else "Add expense" }}</button>
+    <a href="/expenses">Cancel</a>
+  </div>
 </form>
 <script src="{{ url_for('static', filename='expense_form.js') }}" defer></script>
 {% endblock %}

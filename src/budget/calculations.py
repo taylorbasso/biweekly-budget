@@ -272,6 +272,41 @@ def compute_annual_cost_breakdown(
     return AnnualCostBreakdown(categories=categories, grand_total=grand_total)
 
 
+@dataclass(frozen=True)
+class ExpenseCategoryGroup:
+    category: str
+    expenses: list[RecurringExpense]
+    monthly_total: int  # integer cents, rounded once from the exact sum
+
+
+def group_expenses_by_category(
+    expenses: list[RecurringExpense],
+) -> list[ExpenseCategoryGroup]:
+    """Categories A–Z (case-insensitive) with Uncategorized last; expenses A–Z within each."""
+    by_category: dict[str, list[RecurringExpense]] = {}
+    for expense in expenses:
+        by_category.setdefault(expense.category or UNCATEGORIZED, []).append(expense)
+
+    ordered_categories = sorted(
+        by_category, key=lambda category: (category == UNCATEGORIZED, category.casefold())
+    )
+    return [
+        ExpenseCategoryGroup(
+            category=category,
+            expenses=sorted(
+                by_category[category], key=lambda expense: expense.name.casefold()
+            ),
+            monthly_total=round(
+                sum(
+                    (monthly_equivalent(expense) for expense in by_category[category]),
+                    Fraction(0),
+                )
+            ),
+        )
+        for category in ordered_categories
+    ]
+
+
 def payoff_months(balance: int, interest_rate: float, payment: int) -> int | None:
     if balance <= 0:
         return 0

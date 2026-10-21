@@ -11,7 +11,7 @@
     <select id="cycle-select" name="date" onchange="this.form.submit()">
       {% for opt in cycle_options %}
         <option value="{{ opt.start_date.isoformat() }}" {% if opt.start_date == selected_start %}selected{% endif %}>
-          {{ opt.start_date.isoformat() }} – {{ opt.end_date.isoformat() }} (pay {{ opt.next_pay_date.isoformat() }})
+          {{ opt.start_date.strftime("%b %d") }} to {{ opt.end_date.strftime("%b %d") }}
         </option>
       {% endfor %}
     </select>

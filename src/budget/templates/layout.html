@@ -5,28 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Biweekly Budget{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {# Before first paint, so the collapsed menu never flashes open; without JS the menu just stays expanded. #}
+  <script>document.documentElement.classList.add("js");</script>
 </head>
 <body>
   {% if current_user.is_authenticated %}
+  {% set nav_items = [
+    ("/", "Leftover"),
+    ("/pay-schedule", "Pay Schedule"),
+    ("/expenses", "Expenses"),
+    ("/annual-cost", "Annual Cost"),
+    ("/runway", "Runway"),
+    ("/credit-cards", "Credit Cards"),
+  ] %}
   <nav>
     <a class="nav-logo" href="/" aria-label="Biweekly Budget home"><pre aria-hidden="true">   ___  ___
   / _ )/ _ )
- / _  / _  |
+ / _  / _  /
 /____/____/</pre></a>
-    <div class="nav-links">
-      <a href="/">Leftover</a>
-      <a href="/pay-schedule">Pay Schedule</a>
-      <a href="/expenses">Expenses</a>
-      <a href="/annual-cost">Annual Cost</a>
-      <a href="/runway">Runway</a>
-      <a href="/credit-cards">Credit Cards</a>
+    <button type="button" class="nav-toggle" aria-expanded="false" aria-controls="nav-menu">
+      <svg class="icon-open" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <svg class="icon-close" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      Menu
+    </button>
+    <div class="nav-menu" id="nav-menu">
+      <div class="nav-links">
+        {% for href, label in nav_items %}
+          <a href="{{ href }}" {% if request.path == href or (href != "/" and request.path.startswith(href + "/")) %}aria-current="page"{% endif %}>{{ label }}</a>
+        {% endfor %}
+      </div>
+      <form class="signout" method="post" action="{{ url_for('auth.logout') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <span class="signed-in-as">Signed in as {{ current_user.email }}</span>
+        <button type="submit" title="Signed in as {{ current_user.email }}">Sign out</button>
+      </form>
     </div>
-    <form class="signout" method="post" action="{{ url_for('auth.logout') }}">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <span class="signed-in-as">{{ current_user.email }}</span>
-      <button type="submit">Sign out</button>
-    </form>
   </nav>
+  <script src="{{ url_for('static', filename='nav.js') }}" defer></script>
   {% endif %}
   <main>
     {% block content %}{% endblock %}

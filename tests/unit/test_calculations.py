@@ -16,6 +16,7 @@ from budget.calculations import (
     compute_runway,
     effective_payment,
     essential_monthly_burn,
+    group_expenses_by_category,
     monthly_equivalent,
     occurrences_in_cycle,
     payoff_months,
@@ -639,3 +640,82 @@ def test_compute_credit_cards_includes_per_row_and_total_utilization() -> None:
     # average of per-row percentages, since the second account's limit isn't
     # tracked (0) and shouldn't be treated as a 0%-utilized account.
     assert totals.utilization_percent == pytest.approx(80.0)
+
+
+def test_group_expenses_by_category_orders_categories_case_insensitively_uncategorized_last() -> None:
+    expenses = [
+        _expense("Streaming", 1_500, "day_of_month", 20, expense_id=1),
+        _expense("Rent", 145_000, "day_of_month", 1, category="housing", expense_id=2),
+        _expense("Groceries", 15_000, "day_of_week", 5, category="Food", expense_id=3),
+        _expense("Zoo pass", 2_000, "day_of_month", 3, category="Zoo", expense_id=4),
+    ]
+    groups = group_expenses_by_category(expenses)
+    assert [group.category for group in groups] == ["Food", "housing", "Zoo", UNCATEGORIZED]
+
+
+def test_group_expenses_by_category_mixes_recurrence_types_in_one_group() -> None:
+    expenses = [
+        _expense("Takeout", 4_000, "day_of_week", 4, category="Food", expense_id=1),
+        _expense("Groceries", 50_000, "day_of_month", 1, category="Food", expense_id=2),
+    ]
+    groups = group_expenses_by_category(expenses)
+    assert len(groups) == 1
+    assert [expense.name for expense in groups[0].expenses] == ["Groceries", "Takeout"]
+
+
+def test_group_expenses_by_category_sorts_names_case_insensitively() -> None:
+    expenses = [
+        _expense("water", 3_000, "day_of_month", 5, category="Utilities", expense_id=1),
+        _expense("Electric", 9_500, "day_of_month", 15, category="Utilities", expense_id=2),
+    ]
+    groups = group_expenses_by_category(expenses)
+    assert [expense.name for expense in groups[0].expenses] == ["Electric", "water"]
+
+
+def test_group_expenses_by_category_monthly_total_uses_monthly_equivalents() -> None:
+    # $150 weekly = 150 * 52 / 12 = $650.00; $380 biweekly = 380 * 26 / 12 = $823.33...
+    expenses = [
+        _expense("Groceries", 15_000, "day_of_week", 5, category="Mixed", expense_id=1),
+        _expense(
+            "Car payment",
+            38_000,
+            "biweekly",
+            0,
+            category="Mixed",
+            expense_id=2,
+            recurrence_anchor=date(2026, 10, 10),
+        ),
+        _expense("Rent", 145_000, "day_of_month", 1, category="Mixed", expense_id=3),
+    ]
+    groups = group_expenses_by_category(expenses)
+    # 65_000 + 82_333.33... + 145_000 = 292_333.33... cents, rounded once
+    assert groups[0].monthly_total == 292_333
+
+
+def test_group_expenses_by_category_rounds_the_sum_not_each_item() -> None:
+    # Two $1.00 biweekly items: each is 216.67 cents/month; rounding each would give 434.
+    expenses = [
+        _expense(
+            "A",
+            100,
+            "biweekly",
+            0,
+            category="Fees",
+            expense_id=1,
+            recurrence_anchor=date(2026, 1, 2),
+        ),
+        _expense(
+            "B",
+            100,
+            "biweekly",
+            0,
+            category="Fees",
+            expense_id=2,
+            recurrence_anchor=date(2026, 1, 2),
+        ),
+    ]
+    assert group_expenses_by_category(expenses)[0].monthly_total == 433
+
+
+def test_group_expenses_by_category_empty_list_yields_no_groups() -> None:
+    assert group_expenses_by_category([]) == []
